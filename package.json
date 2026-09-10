@@ -1,6 +1,6 @@
 {
   "name": "local-ui-composer",
-  "description": "Browser-local generative UI: Gemma 4 on WebGPU (LiteRT-LM.js) or Chrome's built-in model composing A2UI v0.9 surfaces through a guardrailed design-system catalog.",
+  "description": "Browser-local generative UI: Gemma 4 E2B on WebGPU (LiteRT-LM.js) or Chrome's built-in model composing A2UI v0.9 surfaces through a guardrailed design-system catalog.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
