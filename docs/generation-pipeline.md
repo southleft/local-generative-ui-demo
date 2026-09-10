@@ -36,7 +36,7 @@ The shape it constrains is A2UI's own component syntax: props sit alongside `id`
 
 ### 3. Locked focused decoding
 
-The prototype deliberately errs toward established patterns over creative variation. Chrome samples at temperature 0.4 / topK 3. LiteRT-LM 0.14 decodes greedily no matter what — a field finding: its WebGPU runtime rejects `top-k > 1` outright and aborts the WASM on TOP_P sampling — so on LiteRT the same prompt reproduces the same surface, byte for byte.
+The prototype deliberately errs toward established patterns over creative variation. Chrome is asked for its `most-predictable` sampling preset; web pages ignore the older numeric temperature/topK options, and the preset only takes effect inside Chrome's sampling-parameters origin trial, so the debug trace reports what each session actually got. LiteRT-LM 0.14 decodes greedily no matter what — a field finding: its WebGPU runtime rejects `top-k > 1` outright and aborts the WASM on TOP_P sampling — so on LiteRT the same prompt reproduces the same surface, byte for byte.
 
 ### 4. Streaming with a live preview
 

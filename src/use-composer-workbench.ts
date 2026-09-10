@@ -23,8 +23,11 @@ import { postSessionLog } from './session-log';
 import { createStreamingComposer, type StreamingComposer, type StreamingSurface } from './streaming';
 
 const PROTOCOL_LABEL = 'A2UI v0.9';
-const CHROME_FOCUSED_SAMPLER: SamplerSettings = { temperature: 0.4, topK: 3 };
-const CHROME_REPAIR_SAMPLER: SamplerSettings = { temperature: 0.2, topK: 3 };
+// Near-greedy on purpose, to match LiteRT's greedy decoding as closely as the
+// Prompt API allows. Web pages get the samplingMode preset; the numbers only
+// apply inside extensions.
+const CHROME_FOCUSED_SAMPLER: SamplerSettings = { temperature: 0.4, topK: 3, samplingMode: 'most-predictable' };
+const CHROME_REPAIR_SAMPLER: SamplerSettings = { temperature: 0.2, topK: 3, samplingMode: 'most-predictable' };
 const FIXTURE_SCENARIOS: ScenarioId[] = ['dashboard', 'audit', 'decision'];
 const EMPTY_EXCHANGES: GenerationExchange[] = [];
 
@@ -306,7 +309,7 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
   }, [activeRun, log]);
 
   function logGenerationEvent(event: ModelGenerationEvent) {
-    if (event.type === 'conversation-created') log('model', `Created ${inferenceProvider === 'chrome' ? 'Chrome Prompt API session' : 'LiteRT conversation'}`);
+    if (event.type === 'conversation-created') log('model', `Created ${inferenceProvider === 'chrome' ? 'Chrome Prompt API session' : 'LiteRT conversation'}`, event.detail);
     if (event.type === 'prompt-sent') log('model', `Sent framework prompt to ${activeModelLabel}`, `${event.characters ?? 0} characters`);
     if (event.type === 'generation-cancelled') log('model', 'Stopped the model stream early', `${event.reason ?? 'runaway output'} · rendering what arrived`);
     if (event.type === 'generation-complete') {

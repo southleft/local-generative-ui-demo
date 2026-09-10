@@ -101,6 +101,21 @@ describe('ChromeLanguageModelAdapter', () => {
     expect(create).toHaveBeenLastCalledWith({ temperature: 0.4, topK: 3 });
   });
 
+  it('on a web page (no params()), sends the samplingMode preset instead of the deprecated numbers and reports what the session got', async () => {
+    const create = vi.fn(async (_options?: unknown) => ({ prompt: vi.fn(async () => '{}'), destroy: vi.fn(), samplingMode: 'most-predictable', contextWindow: 6144, contextUsage: 12 }));
+    const adapter = new ChromeLanguageModelAdapter({ availability: vi.fn(async () => 'available' as const), create });
+    await adapter.load();
+    const sessions: unknown[] = [];
+
+    await adapter.generate('Compose', { sampler: { temperature: 0.4, topK: 3, samplingMode: 'most-predictable' }, onSession: (info) => sessions.push(info) });
+    expect(create).toHaveBeenLastCalledWith({ samplingMode: 'most-predictable' });
+    expect(sessions).toEqual([{ requested: { samplingMode: 'most-predictable' }, samplingMode: 'most-predictable', temperature: undefined, topK: undefined, contextWindow: 6144, contextUsage: 12 }]);
+
+    // Without a preset there is nothing a web page can ask for, so the session is created with defaults.
+    await adapter.generate('Compose', { sampler: { temperature: 0.4, topK: 3 } });
+    expect(create).toHaveBeenLastCalledWith(undefined);
+  });
+
   it('uses a fresh Prompt API session for each independent generation', async () => {
     const probeSession = { prompt: vi.fn(async () => { throw new Error('destroyed'); }), destroy: vi.fn() };
     const firstSession = { prompt: vi.fn(async () => '{"attempt":1}'), destroy: vi.fn() };

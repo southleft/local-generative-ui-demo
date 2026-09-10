@@ -84,6 +84,8 @@ export interface ModelLoadProgress {
 
 export interface ModelGenerationEvent {
   type: 'conversation-created' | 'prompt-sent' | 'chunk-received' | 'generation-cancelled' | 'generation-complete';
+  /** Human-readable detail for the debug trace, e.g. the sampling a session actually got. */
+  detail?: string;
   chunkIndex?: number;
   characters?: number;
   totalCharacters?: number;
