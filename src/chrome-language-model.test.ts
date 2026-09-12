@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ChromeLanguageModelAdapter, type ChromeLanguageModelApiLike, type ChromeLanguageModelCreateOptions } from './chrome-language-model';
+import { CHROME_LANGUAGE_HINTS, ChromeLanguageModelAdapter, type ChromeLanguageModelApiLike, type ChromeLanguageModelCreateOptions } from './chrome-language-model';
 import type { ModelLoadProgress } from './local-model';
 
 describe('ChromeLanguageModelAdapter', () => {
@@ -95,10 +95,23 @@ describe('ChromeLanguageModelAdapter', () => {
     await adapter.load();
 
     await adapter.generate('Compose', { sampler: { temperature: 3.5, topK: 40 } });
-    expect(create).toHaveBeenLastCalledWith({ temperature: 2, topK: 8 });
+    expect(create).toHaveBeenLastCalledWith({ ...CHROME_LANGUAGE_HINTS, temperature: 2, topK: 8 });
 
     await adapter.generate('Compose', { sampler: { temperature: 0.4, topK: 3 } });
-    expect(create).toHaveBeenLastCalledWith({ temperature: 0.4, topK: 3 });
+    expect(create).toHaveBeenLastCalledWith({ ...CHROME_LANGUAGE_HINTS, temperature: 0.4, topK: 3 });
+  });
+
+  it('declares English input and output on availability and every session, as Chrome asks', async () => {
+    const availability = vi.fn(async () => 'available' as const);
+    const create = vi.fn(async (_options?: unknown) => ({ prompt: vi.fn(async () => '{}'), destroy: vi.fn() }));
+    const adapter = new ChromeLanguageModelAdapter({ availability, create });
+
+    await adapter.availability();
+    await adapter.load();
+    await adapter.generate('Compose', {});
+    expect(availability).toHaveBeenCalledWith(CHROME_LANGUAGE_HINTS);
+    expect(create.mock.calls[0][0]).toMatchObject(CHROME_LANGUAGE_HINTS);
+    expect(create).toHaveBeenLastCalledWith({ ...CHROME_LANGUAGE_HINTS });
   });
 
   it('on a web page (no params()), sends the samplingMode preset instead of the deprecated numbers and reports what the session got', async () => {
@@ -108,12 +121,12 @@ describe('ChromeLanguageModelAdapter', () => {
     const sessions: unknown[] = [];
 
     await adapter.generate('Compose', { sampler: { temperature: 0.4, topK: 3, samplingMode: 'most-predictable' }, onSession: (info) => sessions.push(info) });
-    expect(create).toHaveBeenLastCalledWith({ samplingMode: 'most-predictable' });
-    expect(sessions).toEqual([{ requested: { samplingMode: 'most-predictable' }, samplingMode: 'most-predictable', temperature: undefined, topK: undefined, contextWindow: 6144, contextUsage: 12 }]);
+    expect(create).toHaveBeenLastCalledWith({ ...CHROME_LANGUAGE_HINTS, samplingMode: 'most-predictable' });
+    expect(sessions).toEqual([{ requested: { ...CHROME_LANGUAGE_HINTS, samplingMode: 'most-predictable' }, samplingMode: 'most-predictable', temperature: undefined, topK: undefined, contextWindow: 6144, contextUsage: 12 }]);
 
     // Without a preset there is nothing a web page can ask for, so the session is created with defaults.
     await adapter.generate('Compose', { sampler: { temperature: 0.4, topK: 3 } });
-    expect(create).toHaveBeenLastCalledWith(undefined);
+    expect(create).toHaveBeenLastCalledWith({ ...CHROME_LANGUAGE_HINTS });
   });
 
   it('uses a fresh Prompt API session for each independent generation', async () => {

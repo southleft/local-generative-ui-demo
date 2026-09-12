@@ -64,6 +64,8 @@ export const DEFAULT_LITERT_MODEL = LITERT_MODELS.find((model) => model.id === '
 export interface LiteRtConversationLike {
   sendMessageStreaming(prompt: string): AsyncIterable<{ content: string | Array<{ type?: string; text?: string }> }>;
   cancel?: () => void;
+  /** Releases the conversation's KV cache in the WASM runtime; without it every generation leaks a live session. */
+  delete?: () => Promise<void> | void;
 }
 
 export interface LiteRtEngineLike {
@@ -258,22 +260,28 @@ export async function generateModelText(engine: LiteRtEngineLike, prompt: string
     return firstIndex !== -1 && firstIndex < output.length - REPETITION_WINDOW * 2 ? 'the model started repeating itself verbatim' : undefined;
   };
 
-  for await (const chunk of conversation.sendMessageStreaming(prompt)) {
-    const text = typeof chunk.content === 'string'
-      ? chunk.content
-      : chunk.content.filter((item) => item.type === 'text' || typeof item.text === 'string').map((item) => item.text ?? '').join('');
-    output += text;
-    chunkIndex += 1;
-    onEvent({ type: 'chunk-received', chunkIndex, characters: text.length, totalCharacters: output.length });
-    if (text) options.onPartial?.(output);
-    if (chunkIndex % 20 === 0) {
-      const reason = cancelReason();
-      if (reason) {
-        conversation.cancel?.();
-        onEvent({ type: 'generation-cancelled', chunkIndex, totalCharacters: output.length, reason });
-        break;
+  try {
+    for await (const chunk of conversation.sendMessageStreaming(prompt)) {
+      const text = typeof chunk.content === 'string'
+        ? chunk.content
+        : chunk.content.filter((item) => item.type === 'text' || typeof item.text === 'string').map((item) => item.text ?? '').join('');
+      output += text;
+      chunkIndex += 1;
+      onEvent({ type: 'chunk-received', chunkIndex, characters: text.length, totalCharacters: output.length });
+      if (text) options.onPartial?.(output);
+      if (chunkIndex % 20 === 0) {
+        const reason = cancelReason();
+        if (reason) {
+          conversation.cancel?.();
+          onEvent({ type: 'generation-cancelled', chunkIndex, totalCharacters: output.length, reason });
+          break;
+        }
       }
     }
+  } finally {
+    // Each generation is its own conversation; release it or the runtime keeps every KV cache alive
+    // and generation slows down run after run (measured: 13 s median → 34 s after ~75 runs in one page).
+    await Promise.resolve(conversation.delete?.()).catch(() => undefined);
   }
   onEvent({ type: 'generation-complete', chunkIndex, totalCharacters: output.length });
   return output;

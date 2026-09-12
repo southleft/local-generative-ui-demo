@@ -57,6 +57,15 @@ export const RESPONSE_CONSTRAINT = {
   additionalProperties: false,
 } as const;
 
+/*
+ * The item schema stays open (additionalProperties: true) on purpose. A
+ * closed key set was tried for Chrome's native responseConstraint on
+ * 2026-09-10: Gemini Nano then emitted only the explicitly typed keys (id,
+ * component, children, value, action), copied the "lowerCamelName" placeholder
+ * into every action, and wrote no text or labels at all. Valid JSON, empty
+ * interface. Corrupted keys are repaired in salvage instead.
+ */
+
 /** One aligned line per component; small models read aligned tables far better than schema prose. */
 export const catalogGuide = componentNames
   .map((name) => `${name.padEnd(11)} ${catalog[name].kind === 'layout' ? 'children' : 'leaf'}; ${catalog[name].guide}`)

@@ -54,6 +54,7 @@ export const SALVAGE_PLAYBOOK = [
   'Split fused "key:value" strings back into pairs, balance mismatched JSON delimiters, and repair truncated output (jsonrepair).',
   'Merge fragments when a truncated stream splits into an envelope plus stray top-level nodes.',
   'Re-split run-on emissions where no node object was ever closed and repeated "id" keys would overwrite each other; when whole-document repair fails outright, repair each "id"-delimited fragment on its own.',
+  'Read a property key that starts with a known key and then trails off ("value ", "children enablement") as that key; constrained decoders corrupt keys this way.',
   'Interpret component and prop synonyms into the catalog vocabulary; drop unknown props.',
   'Reconstruct child components the model inlined into a children array instead of emitting nodes.',
   'Keep the first occurrence of duplicate node IDs when the repeat is identical (greedy models repeat themselves); a leaf that reuses its container\'s id is a parent pointer and is re-homed under it, and a leaf that reuses another leaf\'s id with different content is renamed and kept.',
@@ -62,6 +63,7 @@ export const SALVAGE_PLAYBOOK = [
   'Remove semantic duplicates: repeated fields, buttons, headings, metrics, and alerts with identical content keep only their first occurrence.',
   'Derive a missing Button label from its action name; keep icon-only Headings; render label-less fields.',
   'Prune references to missing nodes, enforce single parenthood (a node listed under two parents renders once; the root yields to the more specific container), and break reference cycles.',
+  'When the declared root names no component, use the one Page the model wrote as the root instead of synthesizing another.',
   'Adopt disconnected nodes into the nearest preceding layout container (flat depth-first recovery).',
   'Remove empty layout containers; group runs of Buttons, Tags, and badges into an Inline row and runs of Metrics into a Grid.',
   'Require a renderable floor (a root plus visible content) — otherwise request one of at most two model repairs.',
@@ -204,7 +206,38 @@ interface InterpretedNode {
  * top-level props, coerce all prop values, and lift bind/action. Returns
  * undefined when no catalog component can be recovered.
  */
-function interpretNode(raw: Record<string, unknown>, fallbackId: string, warnings: string[]): InterpretedNode | undefined {
+/** Every key a node may legitimately carry: transport fields, catalog props, and their accepted aliases. */
+const knownNodeKeys: ReadonlySet<string> = new Set([
+  'id', 'component', 'type', 'props', 'children', 'bind', 'action', 'on',
+  ...inlinePropKeys,
+  ...componentNames.flatMap((name) => Object.values(catalog[name].props).flatMap((rule) => rule.aliases)),
+]);
+
+/**
+ * Constrained decoding (Chrome's Prompt API) can corrupt a key while leaving
+ * its prefix intact: "value " with a trailing space, "children enablement",
+ * "action交付". The recognisable prefix is what the model wrote, so a key that
+ * starts with a known key and then trails off is read as that key.
+ */
+function repairKeys(raw: Record<string, unknown>, id: string, warnings: string[]): Record<string, unknown> {
+  const repaired: Record<string, unknown> = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(raw)) {
+    if (knownNodeKeys.has(key)) { repaired[key] = value; continue; }
+    // Only whitespace or non-ASCII may follow the known key: "text-align" or
+    // "labelText" are different names, not corruption.
+    const match = key.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?=[\s\u0080-\uFFFF]|$)/);
+    const base = match?.[1];
+    if (base && base !== key && knownNodeKeys.has(base) && !(base in repaired)) { repaired[base] = value; count += 1; continue; }
+    repaired[key] = value;
+  }
+  if (count) warnings.push(`Repaired ${plural(count, 'corrupted property key')} on "${id}".`);
+  return repaired;
+}
+
+function interpretNode(input: Record<string, unknown>, fallbackId: string, warnings: string[]): InterpretedNode | undefined {
+  const raw = repairKeys(input, String(input.id ?? fallbackId), warnings);
+  if (isRecord(raw.props)) raw.props = repairKeys(raw.props, String(raw.id ?? fallbackId), warnings);
   const component = coerceComponentName(raw.component ?? raw.type);
   if (!component) {
     warnings.push(`Dropped node "${String(raw.id ?? fallbackId)}": component "${String(raw.component ?? raw.type ?? 'missing')}" is not in the catalog.`);
@@ -504,6 +537,13 @@ function resolveRoot(nodes: NodeMap, declaredRoot: string | undefined, warnings:
   const orphans = [...nodes.keys()].filter((id) => !childIds.has(id));
   if (declaredRoot && nodes.has(declaredRoot)) return declaredRoot;
   if (orphans.length === 1) return orphans[0];
+  // A declared root that names nothing (schema-constrained models do this:
+  // valid JSON, dangling root) yields to the one Page the model actually wrote.
+  const pages = orphans.filter((id) => nodes.get(id)!.component === 'Page');
+  if (declaredRoot && pages.length === 1) {
+    warnings.push(`Declared root "${declaredRoot}" names no component; used the only Page, "${pages[0]}", as the root.`);
+    return pages[0];
+  }
 
   const rootId = declaredRoot && !nodes.has(declaredRoot) && IDENTIFIER.test(declaredRoot) && declaredRoot.length <= 112 ? declaredRoot : 'generatedRoot';
   const layoutId = `${rootId}Layout`;

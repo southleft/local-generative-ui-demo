@@ -77,8 +77,8 @@ flowchart TB
   end
   subgraph salvage["2 · Graph salvage · src/salvage.ts · in this order"]
     direction LR
-    s1["collectNodes<br/>synonyms, inline children<br/>back into real nodes"] --> s2["resolveDuplicateIds<br/>re-home · rename · drop"] --> s3["ignoreTypeNameAnnotations"] --> s4["validateNodes<br/>catalog schema per node<br/>strip bad optional props first"] --> s5["removeRepeatedContent"]
-    s5 --> s6["settleParents<br/>one parent per node<br/>root yields to a container"] --> s7["resolveRoot"] --> s8["connectTree<br/>adopt orphans by<br/>emission order"] --> s9["removeEmptyContainers"] --> s10["groupRows<br/>Metrics → Grid<br/>Buttons, Tags → Inline"]
+    s1["collectNodes<br/>repair corrupted keys, synonyms,<br/>inline children back into real nodes"] --> s2["resolveDuplicateIds<br/>re-home · rename · drop"] --> s3["ignoreTypeNameAnnotations"] --> s4["validateNodes<br/>catalog schema per node<br/>strip bad optional props first"] --> s5["removeRepeatedContent"]
+    s5 --> s6["settleParents<br/>one parent per node<br/>root yields to a container"] --> s7["resolveRoot<br/>dangling root → the one Page"] --> s8["connectTree<br/>adopt orphans by<br/>emission order"] --> s9["removeEmptyContainers"] --> s10["groupRows<br/>Metrics → Grid<br/>Buttons, Tags → Inline"]
   end
   subgraph validate["3 · Strict validation · unchanged, runs last"]
     direction LR

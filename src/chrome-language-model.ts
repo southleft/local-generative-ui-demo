@@ -5,6 +5,16 @@ export type ChromeModelAvailability = 'unavailable' | 'downloadable' | 'download
 /** Chrome's web-page sampling presets; the numeric temperature/topK options only apply inside extensions. */
 export type ChromeSamplingMode = 'most-predictable' | 'predictable' | 'slightly-predictable' | 'balanced' | 'slightly-creative' | 'creative' | 'most-creative';
 
+/**
+ * Chrome wants the prompt and output languages declared up front, on
+ * availability() and create() alike; without them it warns that output
+ * quality and its safety attestation suffer. Everything here is English.
+ */
+export const CHROME_LANGUAGE_HINTS = {
+  expectedInputs: [{ type: 'text', languages: ['en'] }],
+  expectedOutputs: [{ type: 'text', languages: ['en'] }],
+} as const;
+
 export interface ChromeLanguageModelSessionLike {
   prompt(prompt: string, options?: { responseConstraint?: object }): Promise<string>;
   promptStreaming?(prompt: string, options?: { responseConstraint?: object }): AsyncIterable<string> | ReadableStream<string>;
@@ -44,6 +54,8 @@ export interface ChromeLanguageModelCreateOptions {
   temperature?: number;
   topK?: number;
   samplingMode?: ChromeSamplingMode;
+  expectedInputs?: readonly { type: 'text'; languages: readonly string[] }[];
+  expectedOutputs?: readonly { type: 'text'; languages: readonly string[] }[];
 }
 
 export interface ChromeLanguageModelApiLike {
@@ -89,16 +101,17 @@ export class ChromeLanguageModelAdapter {
 
   async availability(): Promise<ChromeModelAvailability> {
     if (!this.languageModel) return 'unavailable';
-    return this.languageModel.availability();
+    return this.languageModel.availability(CHROME_LANGUAGE_HINTS);
   }
 
   async load(onProgress: (progress: ModelLoadProgress) => void = () => undefined): Promise<ChromeLanguageModelSessionLike> {
     if (!this.languageModel) throw new Error('Chrome built-in AI is not available in this browser. Use Chrome 148+ on an eligible desktop, or select LiteRT.');
-    const availability = await this.languageModel.availability();
+    const availability = await this.languageModel.availability(CHROME_LANGUAGE_HINTS);
     if (availability === 'unavailable') throw new Error('Chrome built-in AI is unavailable on this device or browser profile. Select LiteRT instead.');
 
     onProgress({ phase: 'preparing' });
     const session = await this.languageModel.create({
+      ...CHROME_LANGUAGE_HINTS,
       monitor(monitor) {
         monitor.addEventListener('downloadprogress', (event) => {
           const loaded = Math.max(0, Math.min(1, event.loaded));
@@ -134,7 +147,7 @@ export class ChromeLanguageModelAdapter {
   /** Each generation gets a fresh session so no prior prompt leaks into the next one. */
   async generate(prompt: string, options: ChromeGenerateOptions = {}): Promise<string> {
     if (!this.languageModel) throw new Error('Chrome built-in AI is not available for a new generation session.');
-    const createOptions = await this.sessionOptions(options.sampler);
+    const createOptions: ChromeLanguageModelCreateOptions = { ...CHROME_LANGUAGE_HINTS, ...(await this.sessionOptions(options.sampler)) };
     const activeSession = await this.languageModel.create(createOptions);
     options.onSession?.({
       requested: createOptions,

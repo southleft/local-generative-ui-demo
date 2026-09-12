@@ -838,3 +838,45 @@ describe('strict guardrails mode', () => {
     }))).toThrow(/strict mode: .*no coercion applied/i);
   });
 });
+
+describe('constrained-decoder damage (Gemini Nano)', () => {
+  it('reads a key that starts with a known key and trails off as that key, and leaves genuinely different names alone', () => {
+    const { composition, warnings } = parseComposition(JSON.stringify({
+      root: 'page',
+      components: [
+        { id: 'page', component: 'Page', 'children enablement': ['metric', 'note'] },
+        { id: 'metric', component: 'Metric', label: 'Tasks Completed', 'value ': '75%', 'tone交付': 'success' },
+        { id: 'note', component: 'Text', text: 'Fine', 'text-align': 'center', labelText: 'ignored' },
+      ],
+    }));
+    const metric = composition.nodes.find((node) => node.id === 'metric');
+    expect(metric?.props).toMatchObject({ label: 'Tasks Completed', value: '75%', tone: 'success' });
+    expect(composition.nodes.find((node) => node.id === 'page')?.children).toEqual(['metric', 'note']);
+    expect(composition.nodes.find((node) => node.id === 'note')?.props).toEqual({ text: 'Fine' });
+    expect(warnings.filter((warning) => warning.startsWith('Repaired'))).toEqual([
+      'Repaired 1 corrupted property key on "page".',
+      'Repaired 2 corrupted property keys on "metric".',
+    ]);
+    expect(warnings.some((warning) => warning.startsWith('Dropped Metric'))).toBe(false);
+  });
+
+  it('uses the one Page the model wrote when the declared root names no component', () => {
+    const { composition, warnings } = parseComposition(JSON.stringify({
+      root: 'status-dashboard',
+      components: [
+        { id: 'dashboard-page', component: 'Page', children: ['title', 'metrics'] },
+        { id: 'title', component: 'Heading', text: 'Website Redesign Status', level: 'h1' },
+        { id: 'metrics', component: 'Grid', columns: 2, children: ['done', 'left'] },
+        { id: 'done', component: 'Metric', label: 'Done', value: '75%' },
+        { id: 'left', component: 'Metric', label: 'Left', value: '25%' },
+        // An unlinked trailing node, so more than one node is parentless and the Page has to be chosen, not defaulted to.
+        { id: 'footer', component: 'Text', text: 'Updated hourly' },
+      ],
+    }));
+    expect(composition.root).toBe('dashboard-page');
+    expect(composition.nodes.find((node) => node.id === 'footer')).toBeDefined();
+    expect(composition.nodes.filter((node) => node.component === 'Page')).toHaveLength(1);
+    expect(warnings).toContain('Declared root "status-dashboard" names no component; used the only Page, "dashboard-page", as the root.');
+    expect(warnings.some((warning) => warning.startsWith('Wrapped'))).toBe(false);
+  });
+});
