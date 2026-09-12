@@ -52,6 +52,10 @@ sequenceDiagram
 
 **Live demo:** [southleft.github.io/local-generative-ui-demo](https://southleft.github.io/local-generative-ui-demo/). You need Chrome with WebGPU, and the first Gemma load downloads 2.0 GB once into your browser's cache. On the public site the Chrome built-in model shows as unavailable unless your Chrome has the Prompt API flag enabled; it works locally on an eligible profile.
 
+### A fourth model, when you have the file
+
+The LiteRT dropdown also lists **Gemma 4 E2B · catalog-tuned**: the same model with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens and exported at int8 (2.14 GB). It runs through the runtime's non-streaming path with the file placed inside the WASM heap (`src/litert-heap-loader.ts`). The artifact is not published yet, so the option is disabled on the hosted site; locally, put the file where `vite.config.ts` expects it (or point `TUNED_MODEL_PATH` at it) and it appears, and a deployed build takes a hosted URL via `VITE_TUNED_MODEL_URL`. How it was trained and what it scores is in [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md) and [`docs/decision-log.md`](docs/decision-log.md).
+
 ## Run it
 
 Requirements: Node `^20.19 || >=22.12` and Chrome with WebGPU. Chrome's built-in model also needs an eligible desktop profile that exposes `LanguageModel`.

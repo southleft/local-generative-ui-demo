@@ -4,8 +4,11 @@
  * The runtime itself is imported lazily so the page loads without it.
  */
 
+import type * as LiteRtCore from '@litert-lm/core';
+import { createHeapResidentEngine, type HeapLoaderWasm } from './litert-heap-loader';
+
 export interface LiteRtModelDefinition {
-  id: 'qwen3-0.6b' | 'gemma-4-e2b' | 'gemma-4-e4b';
+  id: 'qwen3-0.6b' | 'gemma-4-e2b' | 'gemma-4-e4b' | 'gemma-4-e2b-catalog';
   label: string;
   shortLabel: string;
   url: string;
@@ -23,7 +26,23 @@ export interface LiteRtModelDefinition {
   description: string;
   webSupported: boolean;
   unsupportedReason?: string;
+  /**
+   * How the artifact reaches the runtime. 'streaming' (default) is the
+   * package's own path and takes only Google's "-web" artisan artifacts.
+   * 'heap' places a standard export inside the WASM heap and uses the
+   * runtime's ordinary GPU executor; see litert-heap-loader.ts.
+   */
+  loader?: 'streaming' | 'heap';
 }
+
+/**
+ * Where the catalog-tuned artifact is served from: the dev server route in
+ * vite.config.ts by default, or a hosted URL given at build time as
+ * VITE_TUNED_MODEL_URL for a deployed site.
+ */
+const TUNED_MODEL_URL: string = (import.meta.env?.VITE_TUNED_MODEL_URL as string | undefined) || '/models/gemma-4-e2b-catalog-int8.litertlm';
+/** The dev server serves the artifact from disk; a deployed build only has it when a hosted URL was configured. */
+const TUNED_MODEL_AVAILABLE: boolean = Boolean(import.meta.env?.VITE_TUNED_MODEL_URL) || Boolean(import.meta.env?.DEV);
 
 export const LITERT_MODELS: LiteRtModelDefinition[] = [
   {
@@ -56,6 +75,18 @@ export const LITERT_MODELS: LiteRtModelDefinition[] = [
     contextTokens: 4_096,
     description: 'Larger web-optimized quality comparison with a substantially heavier download.',
     webSupported: true,
+  },
+  {
+    id: 'gemma-4-e2b-catalog',
+    label: 'Gemma 4 E2B · catalog-tuned',
+    shortLabel: 'G2+',
+    url: TUNED_MODEL_URL,
+    sizeBytes: 2_293_258_112,
+    contextTokens: 4_096,
+    description: 'Gemma 4 E2B with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens, exported at int8 (2.14 GB) and loaded through the runtime\'s standard path.',
+    webSupported: TUNED_MODEL_AVAILABLE,
+    unsupportedReason: TUNED_MODEL_AVAILABLE ? undefined : 'The catalog-tuned artifact is not published for this site yet; run the dev server next to the training output, or set VITE_TUNED_MODEL_URL at build time.',
+    loader: 'heap',
   },
 ];
 
@@ -139,12 +170,22 @@ export async function clearCachedModel(model: LiteRtModelDefinition, cacheStorag
   }
 }
 
+/** What loadLiteRtModel hands to the engine factory once the artifact bytes are available. */
+export interface EngineFactorySettings {
+  model: Blob | ReadableStream<Uint8Array>;
+  mainExecutorSettings: { maxNumTokens: number };
+  loader: 'streaming' | 'heap';
+  /** Exact artifact size when known (Cache Storage hit or Content-Length); the heap loader needs it up front. */
+  totalBytes?: number;
+  url: string;
+}
+
 interface LoadLiteRtModelOptions {
   model?: LiteRtModelDefinition;
   onProgress?: (progress: ModelLoadProgress) => void;
   fetcher?: typeof fetch;
   cacheStorage?: CacheStorage;
-  engineFactory?: (settings: { model: Blob | ReadableStream<Uint8Array>; mainExecutorSettings: { maxNumTokens: number } }) => Promise<LiteRtEngineLike>;
+  engineFactory?: (settings: EngineFactorySettings) => Promise<LiteRtEngineLike>;
   /** KV-cache budget for prompt plus output, in tokens. Defaults to the model definition's contextTokens. */
   maxNumTokens?: number;
 }
@@ -217,22 +258,63 @@ export async function loadLiteRtModel(options: LoadLiteRtModelOptions = {}): Pro
   };
 
   let artifact: Blob | ReadableStream<Uint8Array>;
+  let totalBytes: number | undefined;
   if (cached) {
     artifact = cached.blob;
+    totalBytes = cached.blob.size;
     reportCompiling();
   } else {
-    const { body, totalBytes } = await fetchModelBody(fetcher, model);
-    artifact = countingStream(body, totalBytes, onProgress, reportCompiling);
+    const fetched = await fetchModelBody(fetcher, model);
+    totalBytes = fetched.totalBytes;
+    artifact = countingStream(fetched.body, fetched.totalBytes, onProgress, reportCompiling);
   }
 
-  const engineFactory = options.engineFactory ?? (async (settings) => {
-    const { Engine } = await import('@litert-lm/core');
-    return Engine.create(settings) as unknown as Promise<LiteRtEngineLike>;
+  const engineFactory = options.engineFactory ?? defaultEngineFactory;
+  const engine = await engineFactory({
+    model: artifact,
+    mainExecutorSettings: { maxNumTokens: options.maxNumTokens ?? model.contextTokens },
+    loader: model.loader ?? 'streaming',
+    totalBytes,
+    url: model.url,
   });
-  const engine = await engineFactory({ model: artifact, mainExecutorSettings: { maxNumTokens: options.maxNumTokens ?? model.contextTokens } });
   reportCompiling();
   onProgress({ phase: 'ready', percent: 100, fromCache: cached?.fromCache ?? false });
   return engine;
+}
+
+async function defaultEngineFactory(settings: EngineFactorySettings): Promise<LiteRtEngineLike> {
+  const core = await import('@litert-lm/core');
+  if (settings.loader !== 'heap') {
+    return core.Engine.create({ model: settings.model, mainExecutorSettings: settings.mainExecutorSettings }) as unknown as Promise<LiteRtEngineLike>;
+  }
+  return createHeapEngine(core, settings);
+}
+
+/**
+ * The runtime's non-streaming path: a standard .litertlm placed inside the
+ * WASM heap, run by the ordinary executor on the WebGPU accelerator. The
+ * package's own copy of this path fails above ~1.5 GB (it wants the whole
+ * file as one ArrayBuffer), hence the heap-resident loader.
+ */
+async function createHeapEngine(core: typeof import('@litert-lm/core'), settings: EngineFactorySettings): Promise<LiteRtEngineLike> {
+  if (!settings.totalBytes) throw new Error('The catalog-tuned model needs a known size (Content-Length) to be placed in the WASM heap.');
+  const litertlm = await core.getOrLoadGlobalLiteRtLm();
+  await litertlm.setupDefaultWebGpuDevice();
+  const backend = core.Backend.GPU;
+  const { engine, release } = await createHeapResidentEngine<LiteRtCore.Wasm.EngineSettings>({
+    wasm: litertlm.liteRtLmWasm as unknown as HeapLoaderWasm,
+    backend: { value: backend },
+    source: settings.model,
+    totalBytes: settings.totalBytes,
+    configure: (wasmSettings) => {
+      core.fillWasmEngineSettingsFromEngineSettings(wasmSettings, { model: settings.url, backend, mainExecutorSettings: settings.mainExecutorSettings }, backend, litertlm.liteRtLmWasm);
+      wasmSettings.setParallelFileSectionLoading(false);
+      wasmSettings.setSingleThreadedExecution(true);
+    },
+  });
+  // The JS Engine wrapper's constructor is private in the typings but is what Engine.create itself calls.
+  const EngineWrapper = core.Engine as unknown as new (wasm: unknown, engine: unknown, modelSource: string, deleteCallback: () => void) => LiteRtEngineLike;
+  return new EngineWrapper(litertlm.liteRtLmWasm, engine, settings.url, release);
 }
 
 /**

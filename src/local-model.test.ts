@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { clearCachedModel, DEFAULT_LITERT_MODEL, generateModelText, getCachedModelState, LITERT_MODELS, loadLiteRtModel, type LiteRtEngineLike, type ModelLoadProgress } from './local-model';
+import { clearCachedModel, DEFAULT_LITERT_MODEL, generateModelText, getCachedModelState, LITERT_MODELS, loadLiteRtModel, type EngineFactorySettings, type LiteRtEngineLike, type ModelLoadProgress } from './local-model';
 
 function fakeCacheStorage() {
   const store = new Map<string, { body: ArrayBuffer; headers: Headers }>();
@@ -39,9 +39,39 @@ async function drain(model: Blob | ReadableStream<Uint8Array>): Promise<number> 
 
 describe('loadLiteRtModel', () => {
   it('records Qwen as tested but unsupported and defaults to a supported Gemma web artifact', () => {
-    expect(LITERT_MODELS.map(({ id }) => id)).toEqual(['qwen3-0.6b', 'gemma-4-e2b', 'gemma-4-e4b']);
+    expect(LITERT_MODELS.map(({ id }) => id)).toEqual(['qwen3-0.6b', 'gemma-4-e2b', 'gemma-4-e4b', 'gemma-4-e2b-catalog']);
     expect(LITERT_MODELS[0]).toMatchObject({ label: 'Qwen 3 0.6B', sizeBytes: 614_236_160, webSupported: false });
     expect(DEFAULT_LITERT_MODEL.id).toBe('gemma-4-e2b');
+  });
+
+  it('lists the catalog-tuned Gemma as a standard export that takes the heap-resident path', () => {
+    const tuned = LITERT_MODELS.find((model) => model.id === 'gemma-4-e2b-catalog')!;
+    expect(tuned).toMatchObject({ label: 'Gemma 4 E2B · catalog-tuned', sizeBytes: 2_293_258_112, contextTokens: 4_096, webSupported: true, loader: 'heap' });
+    expect(tuned.url).toBe('/models/gemma-4-e2b-catalog-int8.litertlm');
+    expect(LITERT_MODELS.filter((model) => model.id !== 'gemma-4-e2b-catalog').every((model) => model.loader === undefined)).toBe(true);
+  });
+
+  it('hands the tuned artifact to the engine factory with the heap loader and its exact size', async () => {
+    const tuned = LITERT_MODELS.find((model) => model.id === 'gemma-4-e2b-catalog')!;
+    const fetcher = vi.fn(async () => new Response(streamOf(new Uint8Array(12)), { headers: { 'content-length': '12' } }));
+    const engineFactory = vi.fn<(settings: EngineFactorySettings) => Promise<LiteRtEngineLike>>(async () => ({ createConversation: vi.fn() }) as unknown as LiteRtEngineLike);
+
+    await loadLiteRtModel({ model: tuned, fetcher, engineFactory, cacheStorage: { open: async () => { throw new Error('no cache'); } } as unknown as CacheStorage });
+
+    expect(engineFactory).toHaveBeenCalledTimes(1);
+    expect(engineFactory.mock.calls[0][0]).toMatchObject({ loader: 'heap', totalBytes: 12, url: tuned.url, mainExecutorSettings: { maxNumTokens: 4_096 } });
+  });
+
+  it('keeps the web artifacts on the streaming path and passes the cached size through', async () => {
+    const { storage } = fakeCacheStorage();
+    const fetcher = vi.fn(async () => new Response(streamOf(new Uint8Array(5)), { headers: { 'content-length': '5' } }));
+    const engineFactory = vi.fn<(settings: EngineFactorySettings) => Promise<LiteRtEngineLike>>(async () => ({ createConversation: vi.fn() }) as unknown as LiteRtEngineLike);
+
+    await loadLiteRtModel({ model: LITERT_MODELS[1], fetcher, engineFactory, cacheStorage: storage });
+    await loadLiteRtModel({ model: LITERT_MODELS[1], fetcher, engineFactory, cacheStorage: storage });
+
+    expect(engineFactory.mock.calls.map(([settings]) => settings.loader)).toEqual(['streaming', 'streaming']);
+    expect(engineFactory.mock.calls[1][0].totalBytes).toBe(5);
   });
 
   it('rejects the known-incompatible Qwen artifact before downloading it', async () => {

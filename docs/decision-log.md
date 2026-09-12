@@ -1,0 +1,58 @@
+# Decision log: teaching a browser-local model this catalog
+
+A working log of the decisions behind the fine-tuning and browser-deployment work, in order, with what was tried, what the evidence said, and where the artifacts live. Append-only: new entries go at the bottom of the relevant day. Numbers are from captured runs or files in this repo unless marked otherwise. Earlier prototype decisions (the guardrail, the catalog format, the context limit, Gemini Nano) are summarised at the top because the later choices lean on them.
+
+## Before the fine-tune (3 to 10 September 2026)
+
+| decision | alternatives weighed | evidence | outcome |
+| --- | --- | --- | --- |
+| Keep the guardrail (repair + salvage + strict validation) as the load-bearing layer, not the prompt's trigger words | Drop trigger words; drop salvage; rely on schema-constrained decoding | 65 logged runs: 12/65 first attempts parse as JSON, 5/65 pass strict, 65/65 render after salvage | Guardrail stays; the blog's stance is "works only if the design system pushes back" |
+| Keep the catalog as a table in the prompt | Pretty JSON, minified JSON, JSON Schema | Live A/B on 8 logged prompts: best JSON form 3/8 valid vs table 1/8, guardrail still needed on 6/8; pretty schema overflows 4,096 tokens | Format is not the cause of the failures; table kept |
+| Keep the 4,096-token budget | 8,192, 16,384 | Outputs differ between 4,096 and 8,192 (deterministic within a setting); 3 of 5 sparks worse at 8k; 4,096 matches Gemini Nano's documented lower bound | Default unchanged; `maxNumTokens` exposed per load |
+| Treat Gemini Nano's gap as a finding, not a bug to hide | Drop Nano; per-model guardrails; closed JSON schema | Chrome ignores temperature/topK on web pages, samplingMode needs an origin trial; Nano's failures are corrupted keys and dangling roots; a closed schema made it emit nothing | Two Nano-specific salvage passes (key repair, lone-Page root); blog section "The second model" |
+| Fix the conversation leak in the LiteRT provider | Ignore (restart the tab) | Median generation 13 s → 34 s → minutes after ~75 runs; runtime logs "destructed with N living sessions" | `conversation.delete()` in a `finally`, both repos |
+
+## Fine-tune (10 to 11 September)
+
+| decision | alternatives weighed | evidence | outcome |
+| --- | --- | --- | --- |
+| Train locally with mlx-lm on the M1 Max | Colab/Unsloth; cloud GPU | 64 GB unified memory fits Gemma 4 E2B bf16 + LoRA at 16 GB peak | Local; `training/.venv`, mlx-lm 0.31.3 |
+| Three labelled data sources, mixed | Gemma-only (its own voice), teacher-only (Claude Sonnet 5), catalog-derived only | Gemma 240 / teacher 388 / catalog 96 after filtering through the real guardrail (zero-warning targets only) | `mix-all`, 688 train / 36 valid; Ben's Stamp 2 |
+| Canonical target = the guardrail's own validated composition | Raw model output; hand-written targets | The salvage layer is a labeller: `parse → compileToA2ui → {root, components}` | Every target is what the app would have rendered |
+| Disable the thinking channel in training and eval | Leave mlx-lm's default (`enable_thinking=True`) | Default injects `<|think|>` and a `<|channel>thought` preamble the app never sends | `lora_nothink.py`, `enable_thinking=False` in eval |
+| Prune the HF checkpoint to text-only for MLX | Patch mlx-lm's strict loader | Loader rejects 60 unused k/v tensors on the 20 KV-shared layers plus the vision/audio towers | `prune_checkpoint.py` → 9.29 GB text-only copy |
+| Survive macOS GPU resets by resuming from checkpoints | Restart from scratch | Two "innocent victim" resets during the 2,064-iteration run | `train-supervised.sh` resumes from `latest.safetensors` |
+| Score with the app's guardrail, not loss | Perplexity; schema validity only | val loss 1.31 → 0.46 said little; the replay says valid JSON 11 → 48 of 58, first-try no-loss 54 → 41 | `eval-replay.test.ts` is the exam; finding: a fine-tune moves the failure class |
+
+## Getting it into the browser (11 September)
+
+| decision | alternatives weighed | evidence | outcome |
+| --- | --- | --- | --- |
+| Try the runtime's streaming path first | Transformers.js straight away | `litert-torch export_hf` → 5.07 GB; runtime: "Streaming HF_Tokenizer_Zlib section is not supported yet", then "Streaming kTfLitePrefillDecode models is not supported yet"; Google's web file is an "artisan" decoder no public tool produces | Streaming path closed for custom models |
+| Read the runtime instead of rebuilding it | Custom WASM build from `build-and-run.md` | The WASM is built inside Google (`research/drishti` includes; npm ships the binary); but `engine.js` shows a second, non-streaming path for `backend: GPU` | No rebuild; use the non-streaming path |
+| Put the file inside the WASM heap ourselves | The package's own VFS copy | Chrome refuses a single 2 GB ArrayBuffer; the package concatenates chunks → `RangeError`; the WASM memory max is 4 GB, wasm32 | `src/litert-heap-loader.ts`: malloc in the heap, stream into it, MEMFS node whose mmap aliases the block |
+| Prove the path with Google's own standard file before touching ours | Go straight to the fine-tune | Non-web `gemma-4-E2B-it.litertlm` (2.59 GB) loads in 6 s, heap 3.0 GB, answers correctly, renders 9–41 nodes through the guardrail | Runtime path proven independent of our export |
+| Merge the LoRA into the original HF checkpoint, not the MLX one | Use `mlx_lm.fuse` output | The MLX fuse writes `language_model.model.*` names; the exporter reported every LM weight MISSING and exported random weights | `fuse_hf.py`: `W + scale · lora_bᵀ · lora_aᵀ`, 32 tensors, 0 MISSING |
+| Export with Google's chat template | The HF canonical template | The runtime's minja rejects `.get()` (23 uses) | `--jinja_chat_template_override` |
+| Decoder stays int8; no int4 of any kind | Channelwise int4, weight-only int4, blockwise int4, 2-bit tables, int4 MLP only | Native and fake-quant runs on six held-out prompts: int8 6/6 valid; every int4 decoder form 0–4/6 with loops or garbage; weight-only aborts at the 4 GB ceiling; 2-bit tables garbage | `dynamic_wi8_afp32` only |
+| Build a fake-quantization harness on MLX | One seven-minute export per guess | Reproduces the exporter's arithmetic (symmetric min/max, per row or per 32-block) in two minutes per configuration; validated against the real int4 export | `eval_fakequant.py`, nine configurations logged |
+| Run Google's native runtime as a control | Trust the browser alone | Same int4 garbage natively → not a web-runtime bug; int8 native output byte-identical to MLX bf16 | `native_suite.py` |
+| Swap the tokenizer section for SentencePiece | Keep the 32 MB HF tokenizer | Same file: heap 3.40 → 3.10 GB | Repack with `litert_lm_builder`; 0.54 GB recovered |
+| Prune the vocabulary to 32k tokens | Mixed int8/int4 recipes (still over the heap); Gemma 3 1B (weaker base); Transformers.js | Tables + tied head ≈ 60% of the int8 model; corpus uses 11,323 of 262,144 tokens; MLX score unchanged after the prune | `prune_vocab.py` → int8 export 2.14 GB, heap 3.06 GB |
+| One heavy job at a time, and a standalone Chrome for exams | Parallel exports and native runs; Ben's Chrome | Two exports + two native runs + Chrome crashed the machine; Ben's long-running Chrome made every load take 49–61 s and time out on GPU readback (adapter was still Metal) | Sequential jobs; `browser-suite.mjs` launches its own extension-free Chrome |
+| Ship it as a fourth LiteRT model behind the same toggle | A separate provider; a Transformers.js provider | Same `ModelProvider` seam; only the loader differs | `gemma-4-e2b-catalog`, `loader: 'heap'`, dev route in `vite.config.ts`, `VITE_TUNED_MODEL_URL` for deployed builds |
+
+**Browser result, six held-out prompts, same fresh Chrome, same prompt and guardrail:** stock Gemma 4 E2B 0/6 valid JSON, adjustments 4–17; catalog-tuned 5/6 valid and strict, adjustments 3, 5, 0, 0, 0, 4; load 5–8 s. Raw: `training/runs/browser-suite-*.json`.
+
+## Open decisions
+
+- Hosting the 2.14 GB artifact for the public site (a Hugging Face repo under southleft). Until then the public build shows the option as unavailable.
+- Whether to widen the kept vocabulary (48k, +0.15 GB) for free-text prompts outside English and JSON.
+- Transformers.js stays in reserve for anything bigger than E2B.
+
+## Running log
+
+Entries below are appended as work lands.
+
+- **11 Sep, evening.** Launched `training/scripts/stamp3-pipeline.sh` detached: 58-prompt browser exam of the shipped tuned model, the same exam for the stock file, a two-epoch retrain of `mix-all` under the run name `mix-all-2ep` (1,376 iterations; two epochs chosen over mix-gemma because validation loss had plateaued near iteration 1,300 and the third epoch is the suspect for the looping), then merge → prune → int8 export → repack → exam. One heavy job at a time by construction; results land in `training/runs/stamp3/`. The exam runner now keeps every raw output and writes eval-replay rows, so browser exams are scored by the same test as the MLX and native ones.
+- **11 Sep, evening.** Public repo (`southleft/local-generative-ui-demo`) brought level: the pending Gemini Nano tuning committed on its own, then the heap loader, the fourth model and the dev route. The tuned option is disabled in deployed builds until a hosted URL exists (`VITE_TUNED_MODEL_URL`), with the reason shown in the dropdown. The browser lab module (`src/vfs-backend-probe.ts`) stays in the notebook only: it is tied to the training folder's paths.
