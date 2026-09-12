@@ -40,7 +40,7 @@ export interface LiteRtModelDefinition {
  * vite.config.ts by default, or a hosted URL given at build time as
  * VITE_TUNED_MODEL_URL for a deployed site.
  */
-const TUNED_MODEL_URL: string = (import.meta.env?.VITE_TUNED_MODEL_URL as string | undefined) || '/models/gemma-4-e2b-catalog-int8.litertlm';
+const TUNED_MODEL_URL: string = (import.meta.env?.VITE_TUNED_MODEL_URL as string | undefined) || '/models/gemma-4-e2b-catalog-int8.litertlm?v=2026-09-11-2ep'; // the query string versions the Cache Storage entry when the shipped adapter changes
 /** The dev server serves the artifact from disk; a deployed build only has it when a hosted URL was configured. */
 const TUNED_MODEL_AVAILABLE: boolean = Boolean(import.meta.env?.VITE_TUNED_MODEL_URL) || Boolean(import.meta.env?.DEV);
 
@@ -83,7 +83,7 @@ export const LITERT_MODELS: LiteRtModelDefinition[] = [
     url: TUNED_MODEL_URL,
     sizeBytes: 2_293_258_112,
     contextTokens: 4_096,
-    description: 'Gemma 4 E2B with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens, exported at int8 (2.14 GB) and loaded through the runtime\'s standard path.',
+    description: 'Gemma 4 E2B with a two-epoch LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens, exported at int8 (2.14 GB) and loaded through the runtime\'s standard path.',
     webSupported: TUNED_MODEL_AVAILABLE,
     unsupportedReason: TUNED_MODEL_AVAILABLE ? undefined : 'The catalog-tuned artifact is not published for this site yet; run the dev server next to the training output, or set VITE_TUNED_MODEL_URL at build time.',
     loader: 'heap',

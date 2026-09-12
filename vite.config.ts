@@ -56,7 +56,7 @@ function sessionLogPlugin(): Plugin {
  */
 function tunedModelPlugin(): Plugin {
   const route = '/models/gemma-4-e2b-catalog-int8.litertlm';
-  const file = resolve(process.cwd(), process.env.TUNED_MODEL_PATH ?? 'training/runs/mix-all/litertlm-v32k-int8/model-sp.litertlm');
+  const file = resolve(process.cwd(), process.env.TUNED_MODEL_PATH ?? 'training/runs/release/gemma-4-e2b-catalog-int8.litertlm');
   return {
     name: 'tuned-model',
     configureServer(server) {
