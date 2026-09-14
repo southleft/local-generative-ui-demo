@@ -54,7 +54,7 @@ sequenceDiagram
 
 ### A fourth model, when you have the file
 
-The LiteRT dropdown also lists **Gemma 4 E2B · catalog-tuned**: the same model with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens and exported at int8 (2.14 GB). It runs through the runtime's non-streaming path with the file placed inside the WASM heap (`src/litert-heap-loader.ts`). The artifact is not published yet, so the option is disabled on the hosted site; locally, put the file where `vite.config.ts` expects it (or point `TUNED_MODEL_PATH` at it) and it appears, and a deployed build takes a hosted URL via `VITE_TUNED_MODEL_URL`. How it was trained and what it scores is in [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md) and [`docs/decision-log.md`](docs/decision-log.md).
+The LiteRT dropdown also lists **Gemma 4 E2B · catalog-tuned**: the same model with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens and exported at int8 (2.14 GB). It runs through the runtime's non-streaming path with the file placed inside the WASM heap (`src/litert-heap-loader.ts`). The artifact is not published yet, so the option is disabled on the hosted site; locally, put the file where `vite.config.ts` expects it (or point `TUNED_MODEL_PATH` at it) and it appears, and a deployed build takes a hosted URL via `VITE_TUNED_MODEL_URL`. How it was trained and what it scores is in [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md) and [`docs/decision-log.md`](docs/decision-log.md); the plain-language walkthrough with diagrams is [`docs/fine-tune-to-browser.md`](docs/fine-tune-to-browser.md).
 
 ## Run it
 
