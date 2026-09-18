@@ -8,7 +8,7 @@ import type * as LiteRtCore from '@litert-lm/core';
 import { createHeapResidentEngine, type HeapLoaderWasm } from './litert-heap-loader';
 
 export interface LiteRtModelDefinition {
-  id: 'qwen3-0.6b' | 'gemma-4-e2b' | 'gemma-4-e4b' | 'gemma-4-e2b-catalog';
+  id: 'qwen3-0.6b' | 'gemma-4-e2b' | 'gemma-4-e2b-catalog';
   label: string;
   shortLabel: string;
   url: string;
@@ -64,16 +64,6 @@ export const LITERT_MODELS: LiteRtModelDefinition[] = [
     sizeBytes: 2_008_432_640,
     contextTokens: 4_096,
     description: 'Current balanced quality baseline using the web-optimized text model.',
-    webSupported: true,
-  },
-  {
-    id: 'gemma-4-e4b',
-    label: 'Gemma 4 E4B',
-    shortLabel: 'G4',
-    url: 'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
-    sizeBytes: 2_969_059_328,
-    contextTokens: 4_096,
-    description: 'Larger web-optimized quality comparison with a substantially heavier download.',
     webSupported: true,
   },
   {

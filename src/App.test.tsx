@@ -108,15 +108,15 @@ describe('free-form local UI composer', () => {
     expect(options.sampler).toMatchObject({ temperature: 0.4, topK: 3 });
   });
 
-  it('passes the selected Gemma 4 E4B definition to LiteRT loading', async () => {
+  it('passes the selected catalog-tuned Gemma definition to LiteRT loading', async () => {
     const load = vi.fn<ModelProvider['load']>(async (onProgress) => { onProgress({ phase: 'ready', percent: 100 }); return idleEngine; });
     render(<App modelApi={{ hasWebGpu: () => true, load, generate: async () => '' }} />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: /litert model/i }), { target: { value: 'gemma-4-e4b' } });
-    fireEvent.click(screen.getByRole('button', { name: /load gemma 4 e4b locally/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /litert model/i }), { target: { value: 'gemma-4-e2b-catalog' } });
+    fireEvent.click(screen.getByRole('button', { name: /load gemma 4 e2b · catalog-tuned locally/i }));
 
-    await screen.findByText(/gemma 4 e4b loaded in this browser/i);
-    expect(load.mock.calls[0][1]).toMatchObject({ id: 'gemma-4-e4b' });
+    await screen.findByText(/catalog-tuned loaded in this browser/i);
+    expect(load.mock.calls[0][1]).toMatchObject({ id: 'gemma-4-e2b-catalog', loader: 'heap' });
   });
 
   it('retains a loaded LiteRT engine when switching to Chrome and back', async () => {

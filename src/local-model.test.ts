@@ -39,7 +39,7 @@ async function drain(model: Blob | ReadableStream<Uint8Array>): Promise<number> 
 
 describe('loadLiteRtModel', () => {
   it('records Qwen as tested but unsupported and defaults to a supported Gemma web artifact', () => {
-    expect(LITERT_MODELS.map(({ id }) => id)).toEqual(['qwen3-0.6b', 'gemma-4-e2b', 'gemma-4-e4b', 'gemma-4-e2b-catalog']);
+    expect(LITERT_MODELS.map(({ id }) => id)).toEqual(['qwen3-0.6b', 'gemma-4-e2b', 'gemma-4-e2b-catalog']);
     expect(LITERT_MODELS[0]).toMatchObject({ label: 'Qwen 3 0.6B', sizeBytes: 614_236_160, webSupported: false });
     expect(DEFAULT_LITERT_MODEL.id).toBe('gemma-4-e2b');
   });
