@@ -1,0 +1,40 @@
+{
+ "source": "training/data/mix-all",
+ "rows": 728,
+ "distinctIds": 7950,
+ "idsSharedBy20PlusPages": 27,
+ "top": [
+  [
+   "root",
+   728
+  ],
+  [
+   "divider",
+   182
+  ],
+  [
+   "buttonCancel",
+   67
+  ],
+  [
+   "inlineCancel",
+   63
+  ],
+  [
+   "textFieldStreetAddress",
+   61
+  ],
+  [
+   "textFieldFullName",
+   60
+  ],
+  [
+   "buttonSend",
+   44
+  ],
+  [
+   "headingReviewYourOrder",
+   41
+  ]
+ ]
+}

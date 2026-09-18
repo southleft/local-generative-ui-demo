@@ -103,5 +103,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // The training pipeline's test-shaped scripts write files under training/; run them with training/vitest.config.ts.
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 });

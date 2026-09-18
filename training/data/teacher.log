@@ -1,0 +1,51 @@
+ANTHROPIC_API_KEY missing
+teacher: 397 to generate (0 already done) with claude-sonnet-5
+  25/397 · tokens in 0 out 0 · failures 22
+  50/397 · tokens in 0 out 0 · failures 47
+  75/397 · tokens in 0 out 0 · failures 72
+  100/397 · tokens in 0 out 0 · failures 97
+  125/397 · tokens in 0 out 0 · failures 122
+  150/397 · tokens in 0 out 0 · failures 147
+  175/397 · tokens in 0 out 0 · failures 172
+  200/397 · tokens in 0 out 0 · failures 197
+  225/397 · tokens in 0 out 0 · failures 222
+  250/397 · tokens in 0 out 0 · failures 247
+  275/397 · tokens in 0 out 0 · failures 272
+  300/397 · tokens in 0 out 0 · failures 297
+  325/397 · tokens in 0 out 0 · failures 322
+  350/397 · tokens in 0 out 0 · failures 347
+  375/397 · tokens in 0 out 0 · failures 372
+  397/397 · tokens in 0 out 0 · failures 394
+  397/397 · tokens in 0 out 0 · failures 395
+  397/397 · tokens in 0 out 0 · failures 396
+  397/397 · tokens in 0 out 0 · failures 397
+done · input tokens 0 · output tokens 0 · failures 397
+teacher: 397 to generate (0 already done) with claude-sonnet-5
+  25/397 · tokens in 39759 out 18831 · failures 0
+  50/397 · tokens in 84854 out 42554 · failures 0
+  75/397 · tokens in 129943 out 70559 · failures 0
+  100/397 · tokens in 175035 out 101831 · failures 0
+  125/397 · tokens in 220870 out 139584 · failures 0
+  150/397 · tokens in 266726 out 188272 · failures 0
+  175/397 · tokens in 312210 out 243910 · failures 0
+  200/397 · tokens in 358292 out 297911 · failures 0
+  225/397 · tokens in 404105 out 351611 · failures 0
+  250/397 · tokens in 449201 out 404970 · failures 0
+  275/397 · tokens in 494078 out 457468 · failures 0
+  300/397 · tokens in 538575 out 502801 · failures 0
+  325/397 · tokens in 583201 out 541582 · failures 0
+  350/397 · tokens in 628566 out 578793 · failures 0
+  375/397 · tokens in 673928 out 616549 · failures 0
+  397/397 · tokens in 713902 out 649771 · failures 0
+  397/397 · tokens in 715720 out 651037 · failures 0
+  397/397 · tokens in 717545 out 652321 · failures 0
+  397/397 · tokens in 719366 out 653801 · failures 0
+done · input tokens 719366 · output tokens 653801 · failures 0
+teacher: 55 to generate (342 already done) with claude-sonnet-5
+  25/55 · tokens in 40515 out 54296 · failures 0
+  50/55 · tokens in 85909 out 119118 · failures 0
+  55/55 · tokens in 94695 out 132022 · failures 0
+  55/55 · tokens in 96509 out 133557 · failures 0
+  55/55 · tokens in 98252 out 136230 · failures 0
+  55/55 · tokens in 99997 out 140230 · failures 0
+done · input tokens 99997 · output tokens 140230 · failures 0

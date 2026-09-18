@@ -3,3 +3,14 @@ dist/
 sessions/
 *.local
 .DS_Store
+training/.venv/
+training/.venv-litertlm/
+training/models/
+training/runs/*
+!training/runs/eval-*.jsonl
+!training/runs/stamp3/
+!training/runs/mix-all-ids/
+!training/runs/mix-all-2ep/
+training/runs/stamp3/*.log
+training/runs/stamp3/*.json
+.env

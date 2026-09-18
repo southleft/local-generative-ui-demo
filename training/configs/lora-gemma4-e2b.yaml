@@ -1,0 +1,34 @@
+# mlx-lm LoRA configuration for Gemma 4 E2B on Apple Silicon.
+#   training/.venv/bin/python -m mlx_lm.lora -c training/configs/lora-gemma4-e2b.yaml \
+#     --data training/data/mix-all --adapter-path training/runs/mix-all/adapters --iters <3 epochs>
+# `data`, `adapter_path`, and `iters` are passed on the command line per mix.
+# Local text-only copy (see training/scripts/prune_checkpoint.py); the raw HF checkpoint fails mlx-lm's strict loader.
+model: training/models/gemma-4-E2B-it-text
+train: true
+fine_tune_type: lora
+optimizer: adamw
+seed: 20260910
+
+# Attention projections in the last 16 of 35 text layers; enough for format adherence.
+num_layers: 16
+lora_parameters:
+  keys: ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj"]
+  rank: 16
+  scale: 20.0
+  dropout: 0.05
+
+# Sequences are long (production prompt ~1.5k tokens + composition up to ~2k), so batch 1 with gradient checkpointing.
+# The assembler drops targets over 6,000 characters so nothing is silently truncated here.
+batch_size: 1
+max_seq_length: 4096
+grad_checkpoint: true
+learning_rate: 1.0e-5
+
+# Loss on the assistant turn only: the model must learn to write compositions, not to recite the catalog table.
+mask_prompt: true
+
+steps_per_report: 20
+steps_per_eval: 100
+val_batches: 8
+save_every: 100
+test: false

@@ -52,9 +52,9 @@ sequenceDiagram
 
 **Live demo:** [southleft.github.io/local-generative-ui-demo](https://southleft.github.io/local-generative-ui-demo/). You need Chrome with WebGPU, and the first Gemma load downloads 2.0 GB once into your browser's cache. On the public site the Chrome built-in model shows as unavailable unless your Chrome has the Prompt API flag enabled; it works locally on an eligible profile.
 
-### A fourth model, when you have the file
+### The catalog-tuned model
 
-The LiteRT dropdown also lists **Gemma 4 E2B · catalog-tuned**: the same model with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens and exported at int8 (2.14 GB). It runs through the runtime's non-streaming path with the file placed inside the WASM heap (`src/litert-heap-loader.ts`). The artifact is not published yet, so the option is disabled on the hosted site; locally, put the file where `vite.config.ts` expects it (or point `TUNED_MODEL_PATH` at it) and it appears, and a deployed build takes a hosted URL via `VITE_TUNED_MODEL_URL`. How it was trained and what it scores is in [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md) and [`docs/decision-log.md`](docs/decision-log.md); the plain-language walkthrough with diagrams is [`docs/fine-tune-to-browser.md`](docs/fine-tune-to-browser.md).
+The LiteRT dropdown also lists **Gemma 4 E2B · catalog-tuned**: the same model with a LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens and exported at int8 (2.14 GB). It runs through the runtime's non-streaming path with the file placed inside the WebAssembly memory (`src/litert-heap-loader.ts`). The hosted site loads it from [Hugging Face](https://huggingface.co/bvoran/gemma-4-e2b-it-a2ui-catalog-litertlm) (the Pages workflow sets `VITE_TUNED_MODEL_URL`); locally, put the file at `training/runs/release/gemma-4-e2b-catalog-int8.litertlm` or point `TUNED_MODEL_PATH` at it. On the 58 held-out prompts it writes valid JSON on the first try 50 times where the stock model manages 4; how it was made is in [`docs/fine-tune-to-browser.md`](docs/fine-tune-to-browser.md), and everything behind it is in [`training/`](training/README.md).
 
 ## Run it
 
@@ -159,7 +159,7 @@ Replaying every logged first attempt through both paths: 12 of 65 parse as JSON,
 - **Recover content the model never wrote.** A request naming six things produced four; name and phone were never emitted, and rewording the prompt changed nothing byte for byte.
 - **Protect you from a bad rule.** Reserving `value` on every component instead of only on inputs silently dropped every Metric on every dashboard, and the surfaces still looked plausible. The log caught it, eighteen "Dropped Metric" lines across six runs. Keep the raw output.
 - **Round-trip actions.** Button presses reach the host and stop; A2UI's `deleteSurface`, data-driven child templates, and `functionCall` values are never requested from the model, although the catalog renders a template list the way the library's own does.
-- **Run on any model.** LiteRT-LM.js 0.14 loads only Google's Gemma 4 E2B and E4B web artifacts; a Qwen 3 file was rejected. See [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md).
+- **Run a bigger custom model.** LiteRT-LM.js 0.14's streaming path loads only Google's Gemma 4 E2B and E4B web artifacts. Its non-streaming path takes any standard `.litertlm` through `src/litert-heap-loader.ts`, which is how the catalog-tuned model runs, but the file has to fit inside the runtime's 4 GB WebAssembly memory. Gemma 4 E2B at int8 only fits after its vocabulary is pruned, and every int4 form tried destroyed the fine-tune, so anything larger than E2B needs a different runtime. See [`docs/fine-tune-to-browser.md`](docs/fine-tune-to-browser.md).
 
 ## Where to look
 
@@ -190,4 +190,7 @@ npm run build       # one 471 kB chunk (142 kB gzip) plus the lazily loaded Lite
 
 - [`docs/generation-pipeline.md`](docs/generation-pipeline.md): every stage with real examples and the honest attribution of model versus harness.
 - [`docs/field-notes.md`](docs/field-notes.md): what Gemma 4 E2B actually does, and the measured effect of each guardrail.
-- [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md): whether a fine-tuned model could speak this catalog better, and why it cannot run here yet.
+- [`docs/fine-tune-to-browser.md`](docs/fine-tune-to-browser.md): how the catalog-tuned Gemma was trained (LoRA on MLX, 688 guardrail-labelled examples, two epochs) and how it runs in the browser (a second load path in LiteRT-LM.js, the heap-resident loader, vocabulary pruning, int8). Ten diagrams.
+- [`docs/decision-log.md`](docs/decision-log.md): every decision in the fine-tune and browser work, dated, with the alternatives weighed and the evidence.
+- [`docs/fine-tuning-feasibility.md`](docs/fine-tuning-feasibility.md): the research memo that preceded the work, with its verdicts updated as each was tested.
+- [`training/`](training/README.md): the scripts, data, configs and exam outputs behind the catalog-tuned model; the model itself is on [Hugging Face](https://huggingface.co/bvoran/gemma-4-e2b-it-a2ui-catalog-litertlm).

@@ -221,17 +221,17 @@ One caveat learned the hard way: a long-running Chrome that had survived several
 
 ## Reproduce it
 
-Everything runs from the prototype folder; each script says what it needs at the top. One heavy job at a time on a laptop.
+Everything runs from the repo root; [`training/README.md`](../training/README.md) lists every script and what it needs (Apple Silicon, mlx-lm, litert-torch, a local Gemma 4 E2B download, an `.env` with `HF_TOKEN`). One heavy job at a time on a laptop. The exam outputs behind every number in this document are committed under `training/runs/`, so the scoring step runs anywhere:
 
 ```
-# data: prompts, labelled sources, canonical mix (see training/scripts)
-npx vitest run training/scripts/assemble.test.ts
+# re-score the shipped model's browser exam (or any outputs file) the way the app renders it
+EVAL_FILES=training/runs/stamp3/exam-tuned-2ep.jsonl npx vitest run -c training/vitest.config.ts eval-replay
+
+# data: prompts, labelled sources, canonical mix (the Gemma source needs a sessions/generation-log.ndjson)
+npx vitest run -c training/vitest.config.ts assemble
 
 # train two epochs (resumes across GPU resets), then merge → prune → export → repack → browser exam
 bash training/scripts/train-and-exam.sh mix-all-2ep 1376
-
-# score any run's outputs the way the app renders them
-EVAL_FILES=training/runs/<run>/exam.jsonl npx vitest run training/scripts/eval-replay.test.ts
 
 # publish a run to the Hub
 bash training/scripts/publish-hf.sh training/runs/mix-all-2ep <user>/<repo> training/runs/mix-all-2ep/MODEL_CARD.md
