@@ -13,6 +13,7 @@ import { HISTORY_LIMIT, loadGuardrailsMode, loadPatternLibrary, loadPersistedRun
 import type { InspectorSectionProps } from './inspector-section';
 import { DEFAULT_LITERT_MODEL, LITERT_MODELS, clearCachedModel, getCachedModelState, type LiteRtModelDefinition, type ModelGenerationEvent, type ModelLoadProgress } from './local-model';
 import { chromeProvider, liteRtProvider, type ModelEngine, type ModelProvider, type SamplerSettings } from './model-provider';
+import { DEFAULT_PROMPT } from './sparks';
 import type { PreviewPanelProps } from './preview-panel';
 import { RESPONSE_CONSTRAINT, buildCompositionPrompt, buildRepairPrompt, type PatternLibrary } from './prompt';
 import type { DebugEntry } from './prototype-panels';
@@ -52,7 +53,7 @@ function applyRunUpdate(run: GenerationRun, update: RunUpdate): GenerationRun {
 export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi = chromeProvider }: ComposerWorkbenchOptions): ComposerWorkbench {
   const [inferenceProvider, setInferenceProvider] = useState<InferenceProvider>('litert');
   const [selectedModelId, setSelectedModelId] = useState<LiteRtModelDefinition['id']>(DEFAULT_LITERT_MODEL.id);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [runs, setRuns] = useState<GenerationRun[]>(() => loadPersistedRuns());
   const [activeRunId, setActiveRunId] = useState<number | null>(null);
   const [status, setStatus] = useState<AppStatus>('idle');

@@ -73,6 +73,7 @@ h2 { margin: 0; font-size: 14px; font-weight: 500; letter-spacing: -.01em; }
 .prompt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 24px; }
 .prompt-chips button { border: 1px solid var(--border-soft); background: transparent; color: var(--subtle); border-radius: 4px; padding: 5px 8px; font: 9px 'JetBrains Mono', monospace; cursor: pointer; }
 .prompt-chips button:hover { color: var(--text); border-color: var(--border); }
+.prompt-chips button.is-active { color: #e8e9ff; border-color: rgba(113,112,255,.48); background: rgba(113,112,255,.12); }
 .model-cache-note { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; line-height: 1.5; margin: 12px 0; }
 .model-cache-clear { border: 1px solid var(--border-soft); background: transparent; color: var(--subtle); border-radius: 4px; padding: 2px 7px; font-size: 9px; cursor: pointer; }
 .model-cache-clear:hover { color: #f1a8ae; border-color: rgba(240,107,118,.3); }

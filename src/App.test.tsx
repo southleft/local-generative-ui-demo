@@ -56,13 +56,14 @@ describe('free-form local UI composer', () => {
   });
 
 
-  it('leads with a free-form prompt and sparks, with no creativity control', () => {
+  it('opens with the first spark filled in and that chip highlighted, with no creativity control', () => {
     render(<App />);
 
     const promptBox = screen.getByRole('textbox', { name: /what should exist/i });
-    expect(promptBox).toHaveValue('');
+    expect((promptBox as HTMLTextAreaElement).value).toContain('A patient intake form for a family clinic');
     expect(screen.getByLabelText(/prompt sparks/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sourdough control/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /boring med form/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /sourdough control/i })).toHaveAttribute('aria-pressed', 'false');
     // Decoding is locked to the focused profile; there is no creativity picker.
     expect(screen.queryByRole('button', { name: 'Balanced' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Adventurous' })).not.toBeInTheDocument();
@@ -73,6 +74,12 @@ describe('free-form local UI composer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /sourdough control/i }));
     expect((promptBox as HTMLTextAreaElement).value).toContain('sourdough starter');
+    expect(screen.getByRole('button', { name: /sourdough control/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /boring med form/i })).toHaveAttribute('aria-pressed', 'false');
+
+    // Editing the text so it no longer matches any spark clears the highlight.
+    fireEvent.change(promptBox, { target: { value: 'Mission control for my sourdough starter, but make it purple' } });
+    expect(screen.queryAllByRole('button', { pressed: true })).toHaveLength(0);
   });
 
   it('exposes the LiteRT model picker under the inference provider', () => {

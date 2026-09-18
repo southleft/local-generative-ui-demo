@@ -5,18 +5,10 @@
 
 import { memo } from 'react';
 import type { AppStatus, GenerationRun, GuardrailsMode, InferenceProvider } from './generation-types';
+import { SPARKS } from './sparks';
 import { LITERT_MODELS, type LiteRtModelDefinition, type ModelLoadProgress } from './local-model';
 import { ModelLoader } from './prototype-panels';
 
-const SPARKS: Array<{ label: string; prompt: string }> = [
-  { label: '🩺 Boring med form', prompt: 'A patient intake form for a family clinic: full name, date of birth, phone, email, reason for visit, current medications, and known allergies, with a submit action. Deliberately plain and professional.' },
-  { label: '💬 Support chat', prompt: 'A customer support chat about a delayed order: a short back-and-forth conversation between the customer and the support agent, ending with a proposed solution, plus a reply box and send button.' },
-  { label: '📦 Project status', prompt: 'A status dashboard for a website redesign project: overall progress, budget used, open tasks, a blockers alert, and actions to view the board or export a report.' },
-  { label: '⚙️ Account settings', prompt: 'An account settings page: profile details, notification preferences, and a clearly separated danger zone with a delete-account action.' },
-  { label: '🧾 Checkout review', prompt: 'A checkout review screen for a small web shop: a summary of the ordered items, shipping details fields, the order total, and a place-order action.' },
-  { label: '🍞 Sourdough control', prompt: 'Mission control for my sourdough starter: fermentation progress, feeding schedule, rise metrics, and an emergency deflation alert.' },
-  { label: '🪴 Houseplant mood', prompt: 'A mood tracker for my houseplant Gerald, who is dramatic. Track watering, sunlight drama, and overall vibes, and include a way to log an apology to Gerald.' },
-];
 
 export interface ControlPanelProps {
   activeModelLabel: string;
@@ -77,7 +69,7 @@ export const ControlPanel = memo(function ControlPanel({
       <label className="field-label" htmlFor="request">WHAT SHOULD EXIST?</label>
       <textarea id="request" placeholder="Describe any interface — a tracker, a form, a decision, a control room…" value={prompt} onChange={(event) => onChangePrompt(event.target.value)} rows={4} disabled={isGenerating} />
       <div className="prompt-chips" aria-label="Prompt sparks">
-        {SPARKS.map((spark) => <button key={spark.label} type="button" disabled={isGenerating} onClick={() => onChangePrompt(spark.prompt)}>{spark.label}</button>)}
+        {SPARKS.map((spark) => { const active = prompt.trim() === spark.prompt; return <button key={spark.label} type="button" aria-pressed={active} className={active ? 'is-active' : ''} disabled={isGenerating} onClick={() => onChangePrompt(spark.prompt)}>{spark.label}</button>; })}
       </div>
       <span className="field-label">INFERENCE PROVIDER</span>
       <div className="segmented-control inference-provider-control">
