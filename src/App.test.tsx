@@ -411,7 +411,7 @@ describe('free-form local UI composer', () => {
     expect(localStorage.getItem('local-ui-composer-pattern-library-v1')).toContain('one Card [2 TextField]');
   });
 
-  it('shows overview, rendered preview, and code tabs for each shared component', () => {
+  it('shows the rendered preview first, then overview and code, for each shared component', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('tab', { name: /component library/i }));
 
@@ -420,9 +420,11 @@ describe('free-form local UI composer', () => {
     expect(screen.getByRole('heading', { name: 'Tag' })).toBeInTheDocument();
 
     const metric = screen.getByRole('article', { name: 'Metric component' });
-    expect(within(metric).getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
-    fireEvent.click(within(metric).getByRole('tab', { name: 'Preview' }));
+    expect(within(metric).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Preview', 'Overview', 'Code']);
+    expect(within(metric).getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true');
     expect(within(metric).getByText('$42,800')).toBeInTheDocument();
+    fireEvent.click(within(metric).getByRole('tab', { name: 'Overview' }));
+    expect(within(metric).getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(within(metric).getByRole('tab', { name: 'Code' }));
     expect(within(metric).getByText(/<Metric/)).toBeInTheDocument();
   });

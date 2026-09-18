@@ -124,7 +124,7 @@ export const GenerationExchangePanel = memo(function GenerationExchangePanel({ e
   );
 });
 
-type DefinitionTab = 'overview' | 'preview' | 'code';
+type DefinitionTab = 'preview' | 'overview' | 'code';
 
 const componentExamples = {
   Page: { preview: <Page accent="teal"><Text text="Generated page canvas with a teal accent" /></Page>, code: '<Page accent="teal">\n  <Text text="Generated page canvas" />\n</Page>' },
@@ -148,17 +148,17 @@ const componentExamples = {
 } satisfies Record<ComponentName, { preview: ReactNode; code: string }>;
 
 const ComponentDefinitionCard = memo(function ComponentDefinitionCard({ definition }: { definition: (typeof componentDefinitions)[number] }) {
-  const [tab, setTab] = useState<DefinitionTab>('overview');
+  const [tab, setTab] = useState<DefinitionTab>('preview');
   const example = componentExamples[definition.name];
   const componentId = definition.name.toLowerCase();
   return (
     <article className="component-definition" aria-label={`${definition.name} component`}>
       <div className="component-definition__header"><span className="component-definition__glyph">{definition.name.slice(0, 2)}</span><h3>{definition.name}</h3></div>
       <div className="component-definition__tabs" role="tablist" aria-label={`${definition.name} views`}>
-        {(['overview', 'preview', 'code'] as DefinitionTab[]).map((item) => <button id={`${componentId}-${item}-tab`} aria-controls={`${componentId}-${item}-panel`} key={item} type="button" role="tab" aria-selected={tab === item} className={tab === item ? 'is-active' : ''} onClick={() => setTab(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}
+        {(['preview', 'overview', 'code'] as DefinitionTab[]).map((item) => <button id={`${componentId}-${item}-tab`} aria-controls={`${componentId}-${item}-panel`} key={item} type="button" role="tab" aria-selected={tab === item} className={tab === item ? 'is-active' : ''} onClick={() => setTab(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}
       </div>
-      {tab === 'overview' ? <div id={`${componentId}-overview-panel`} role="tabpanel" aria-labelledby={`${componentId}-overview-tab`} className="component-definition__overview"><p>{definition.description}</p><code>{definition.props.length ? definition.props.join(' · ') : 'no props'}</code><small>{definition.acceptsChildren ? 'Accepts children' : 'Leaf component'}</small></div> : null}
       {tab === 'preview' ? <div id={`${componentId}-preview-panel`} role="tabpanel" aria-labelledby={`${componentId}-preview-tab`} className="component-definition__preview">{example.preview}</div> : null}
+      {tab === 'overview' ? <div id={`${componentId}-overview-panel`} role="tabpanel" aria-labelledby={`${componentId}-overview-tab`} className="component-definition__overview"><p>{definition.description}</p><code>{definition.props.length ? definition.props.join(' · ') : 'no props'}</code><small>{definition.acceptsChildren ? 'Accepts children' : 'Leaf component'}</small></div> : null}
       {tab === 'code' ? <pre id={`${componentId}-code-panel`} role="tabpanel" aria-labelledby={`${componentId}-code-tab`} className="component-definition__code"><code>{example.code}</code></pre> : null}
     </article>
   );
