@@ -38,9 +38,8 @@ async function drain(model: Blob | ReadableStream<Uint8Array>): Promise<number> 
 }
 
 describe('loadLiteRtModel', () => {
-  it('records Qwen as tested but unsupported and defaults to a supported Gemma web artifact', () => {
-    expect(LITERT_MODELS.map(({ id }) => id)).toEqual(['qwen3-0.6b', 'gemma-4-e2b', 'gemma-4-e2b-catalog']);
-    expect(LITERT_MODELS[0]).toMatchObject({ label: 'Qwen 3 0.6B', sizeBytes: 614_236_160, webSupported: false });
+  it('offers stock Gemma 4 E2B and the catalog-tuned E2B, defaulting to stock', () => {
+    expect(LITERT_MODELS.map(({ id }) => id)).toEqual(['gemma-4-e2b', 'gemma-4-e2b-catalog']);
     expect(DEFAULT_LITERT_MODEL.id).toBe('gemma-4-e2b');
   });
 
@@ -67,16 +66,17 @@ describe('loadLiteRtModel', () => {
     const fetcher = vi.fn(async () => new Response(streamOf(new Uint8Array(5)), { headers: { 'content-length': '5' } }));
     const engineFactory = vi.fn<(settings: EngineFactorySettings) => Promise<LiteRtEngineLike>>(async () => ({ createConversation: vi.fn() }) as unknown as LiteRtEngineLike);
 
-    await loadLiteRtModel({ model: LITERT_MODELS[1], fetcher, engineFactory, cacheStorage: storage });
-    await loadLiteRtModel({ model: LITERT_MODELS[1], fetcher, engineFactory, cacheStorage: storage });
+    await loadLiteRtModel({ model: DEFAULT_LITERT_MODEL, fetcher, engineFactory, cacheStorage: storage });
+    await loadLiteRtModel({ model: DEFAULT_LITERT_MODEL, fetcher, engineFactory, cacheStorage: storage });
 
     expect(engineFactory.mock.calls.map(([settings]) => settings.loader)).toEqual(['streaming', 'streaming']);
     expect(engineFactory.mock.calls[1][0].totalBytes).toBe(5);
   });
 
-  it('rejects the known-incompatible Qwen artifact before downloading it', async () => {
+  it('refuses a definition marked unsupported before downloading it', async () => {
     const fetcher = vi.fn();
-    await expect(loadLiteRtModel({ model: LITERT_MODELS[0], fetcher })).rejects.toThrow(/not supported by litert-lm\.js/i);
+    const unsupported = { ...DEFAULT_LITERT_MODEL, webSupported: false, unsupportedReason: 'This artifact is not loadable by LiteRT-LM.js 0.14.' };
+    await expect(loadLiteRtModel({ model: unsupported, fetcher })).rejects.toThrow(/not loadable by litert-lm\.js/i);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -85,7 +85,7 @@ describe('loadLiteRtModel', () => {
     const engine = { createConversation: vi.fn() } as unknown as LiteRtEngineLike;
 
     await loadLiteRtModel({
-      model: LITERT_MODELS[2],
+      model: LITERT_MODELS.find((model) => model.id === 'gemma-4-e2b-catalog')!,
       fetcher,
       engineFactory: vi.fn(async ({ model }) => {
         await drain(model);
@@ -93,7 +93,7 @@ describe('loadLiteRtModel', () => {
       }),
     });
 
-    expect(fetcher).toHaveBeenCalledWith(LITERT_MODELS[2].url, { credentials: 'same-origin' });
+    expect(fetcher).toHaveBeenCalledWith(LITERT_MODELS.find((model) => model.id === 'gemma-4-e2b-catalog')!.url, { credentials: 'same-origin' });
   });
 
   it('reports real download bytes before the indeterminate compile phase', async () => {

@@ -82,7 +82,7 @@ describe('free-form local UI composer', () => {
     expect(screen.queryByText('RENDERING PROTOCOL')).not.toBeInTheDocument();
     const modelSelect = screen.getByRole('combobox', { name: /litert model/i });
     expect(modelSelect).toHaveValue('gemma-4-e2b');
-    expect(within(modelSelect).getByRole('option', { name: /qwen 3 0.6b.*unavailable/i })).toBeDisabled();
+    expect(within(modelSelect).getAllByRole('option').map((option) => (option as HTMLOptionElement).value)).toEqual(['gemma-4-e2b', 'gemma-4-e2b-catalog']);
   });
 
   it('loads and generates through Chrome with a native constraint and no schema text in the prompt', async () => {

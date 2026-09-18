@@ -8,7 +8,7 @@ import type * as LiteRtCore from '@litert-lm/core';
 import { createHeapResidentEngine, type HeapLoaderWasm } from './litert-heap-loader';
 
 export interface LiteRtModelDefinition {
-  id: 'qwen3-0.6b' | 'gemma-4-e2b' | 'gemma-4-e2b-catalog';
+  id: 'gemma-4-e2b' | 'gemma-4-e2b-catalog';
   label: string;
   shortLabel: string;
   url: string;
@@ -45,17 +45,6 @@ const TUNED_MODEL_URL: string = (import.meta.env?.VITE_TUNED_MODEL_URL as string
 const TUNED_MODEL_AVAILABLE: boolean = Boolean(import.meta.env?.VITE_TUNED_MODEL_URL) || Boolean(import.meta.env?.DEV);
 
 export const LITERT_MODELS: LiteRtModelDefinition[] = [
-  {
-    id: 'qwen3-0.6b',
-    label: 'Qwen 3 0.6B',
-    shortLabel: 'Q3',
-    url: 'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
-    sizeBytes: 614_236_160,
-    contextTokens: 4_096,
-    description: 'Tested with LiteRT-LM.js 0.14; the browser runtime rejects its prefill/decode model format.',
-    webSupported: false,
-    unsupportedReason: 'Qwen 3 0.6B is not supported by LiteRT-LM.js 0.14. The current Web API supports only the web-optimized Gemma 4 E2B and E4B artifacts.',
-  },
   {
     id: 'gemma-4-e2b',
     label: 'Gemma 4 E2B',
