@@ -126,6 +126,51 @@ describe('free-form local UI composer', () => {
     expect(load.mock.calls[0][1]).toMatchObject({ id: 'gemma-4-e2b-catalog', loader: 'heap' });
   });
 
+  it('locks the model choice while a load is in flight so a second load cannot overlap it', async () => {
+    const gate = deferred();
+    const load = vi.fn<ModelProvider['load']>(async (onProgress) => {
+      onProgress({ phase: 'compiling' });
+      await gate.promise;
+      onProgress({ phase: 'ready', percent: 100 });
+      return idleEngine;
+    });
+    render(<App modelApi={{ hasWebGpu: () => true, load, generate: async () => '' }} />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: /litert model/i }), { target: { value: 'gemma-4-e2b-catalog' } });
+    fireEvent.click(screen.getByRole('button', { name: /load gemma 4 e2b · catalog-tuned locally/i }));
+
+    const modelSelect = screen.getByRole('combobox', { name: /litert model/i });
+    expect(modelSelect).toBeDisabled();
+    expect(screen.getByRole('button', { name: /chrome built-in/i })).toBeDisabled();
+    fireEvent.change(modelSelect, { target: { value: 'gemma-4-e2b' } });
+    expect(screen.queryByRole('button', { name: /load gemma 4 e2b locally/i })).not.toBeInTheDocument();
+
+    await act(async () => gate.resolve());
+    await screen.findByText(/catalog-tuned loaded in this browser/i);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('combobox', { name: /litert model/i })).toBeEnabled();
+  });
+
+  it('keeps one LiteRT model resident: loading the other unloads it, and switching back reloads', async () => {
+    const stockEngine = { ...idleEngine };
+    const tunedEngine = { ...idleEngine };
+    const load = vi.fn<ModelProvider['load']>(async (onProgress, model) => { onProgress({ phase: 'ready', percent: 100 }); return model?.id === 'gemma-4-e2b-catalog' ? tunedEngine : stockEngine; });
+    const unload = vi.fn<NonNullable<ModelProvider['unload']>>(async () => undefined);
+    render(<App modelApi={{ hasWebGpu: () => true, load, unload, generate: async () => '' }} />);
+
+    await loadGemma();
+    fireEvent.change(screen.getByRole('combobox', { name: /litert model/i }), { target: { value: 'gemma-4-e2b-catalog' } });
+    expect(unload).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /load gemma 4 e2b · catalog-tuned locally/i }));
+    await screen.findByText(/catalog-tuned loaded in this browser/i);
+    expect(unload.mock.calls).toEqual([[stockEngine]]);
+
+    fireEvent.change(screen.getByRole('combobox', { name: /litert model/i }), { target: { value: 'gemma-4-e2b' } });
+    await loadGemma();
+    expect(unload.mock.calls).toEqual([[stockEngine], [tunedEngine]]);
+    expect(load).toHaveBeenCalledTimes(3);
+  });
+
   it('retains a loaded LiteRT engine when switching to Chrome and back', async () => {
     const load = vi.fn<ModelProvider['load']>(async (onProgress) => { onProgress({ phase: 'ready', percent: 100 }); return idleEngine; });
     render(<App modelApi={{ hasWebGpu: () => true, load, generate: async () => '' }} />);

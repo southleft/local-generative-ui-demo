@@ -90,6 +90,9 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
   const selectedModelSize = `${(selectedModel.sizeBytes / 1_000_000_000).toFixed(selectedModel.sizeBytes < 1_000_000_000 ? 2 : 1)} GB`;
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const isGenerating = status === 'generating';
+  // Both LiteRT models share one WebAssembly runtime; a second load started before the first finishes corrupts it.
+  const isLoading = status === 'loading';
+  const loadInFlight = useRef(false);
 
   const log = useCallback((source: DebugEntry['source'], message: string, detail?: string) => {
     const elapsed = performance.now() - debugStart.current;
@@ -179,7 +182,7 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
   }, [guardrailsMode, isGenerating, log]);
 
   const chooseInferenceProvider = useCallback((nextProvider: InferenceProvider) => {
-    if (nextProvider === inferenceProvider || isGenerating) return;
+    if (nextProvider === inferenceProvider || isGenerating || isLoading) return;
     const nextEngineKey: EngineKey = nextProvider === 'chrome' ? 'chrome' : selectedModel.id;
     const nextEngine = engines[nextEngineKey];
     setInferenceProvider(nextProvider);
@@ -187,10 +190,10 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
     setStatus(nextEngine ? 'ready' : hasRenderableArtifact(activeRun) ? 'rendered' : 'idle');
     setErrors([]);
     log('system', `Selected ${nextProvider === 'chrome' ? 'Chrome built-in AI' : 'LiteRT-LM'}`, nextEngine ? 'Reusing the model already loaded in this page.' : 'Load the selected local model before generating.');
-  }, [activeRun, engines, inferenceProvider, isGenerating, log, selectedModel.id]);
+  }, [activeRun, engines, inferenceProvider, isGenerating, isLoading, log, selectedModel.id]);
 
   const chooseLiteRtModel = useCallback((nextModelId: LiteRtModelDefinition['id']) => {
-    if (isGenerating) return;
+    if (isGenerating || isLoading) return;
     const nextEngine = engines[nextModelId];
     setSelectedModelId(nextModelId);
     setModelProgress(null);
@@ -198,7 +201,7 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
     setErrors([]);
     const nextModel = LITERT_MODELS.find((model) => model.id === nextModelId);
     log('model', `Selected ${nextModel?.label ?? nextModelId}`, nextEngine ? 'Reusing the model already loaded in this page.' : 'The artifact remains lazy until you explicitly load it.');
-  }, [activeRun, engines, isGenerating, log]);
+  }, [activeRun, engines, isGenerating, isLoading, log]);
 
   const restoreRun = useCallback((runId: number) => {
     if (isGenerating) return;
@@ -224,7 +227,28 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
     log('model', progress.phase === 'compiling' ? `Compiling ${activeModelLabel} for WebGPU` : `${activeModelLabel} ${progress.phase}`, detail);
   }, [activeModelLabel, log]);
 
+  /**
+   * Two LiteRT models do not fit in one 4 GB WebAssembly heap: the tuned model
+   * alone holds about 2.9 GB, and once the stock model has generated, the tuned
+   * one fails with "Failed to allocate aligned memory". So loading one frees the
+   * other; switching back reloads it from Cache Storage in a few seconds.
+   */
+  async function unloadOtherLiteRtModels() {
+    for (const other of LITERT_MODELS) {
+      const resident = other.id === selectedModel.id ? undefined : engines[other.id];
+      if (!resident) continue;
+      setEngines((current) => {
+        const next = { ...current };
+        delete next[other.id];
+        return next;
+      });
+      await Promise.resolve(modelApi.unload?.(resident)).catch(() => undefined);
+      log('model', `Unloaded ${other.label}`, 'Only one LiteRT model fits in the WebAssembly heap; switching back reloads it from the browser cache.');
+    }
+  }
+
   const loadModel = useCallback(async () => {
+    if (loadInFlight.current) return;
     if (!activeModelApi.hasWebGpu()) {
       const message = 'WebGPU is not available in this browser. Use deterministic mode or a WebGPU-capable Chrome browser.';
       setErrors([message]);
@@ -232,10 +256,12 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
       log('model', 'Model load blocked', message);
       return;
     }
+    loadInFlight.current = true;
     setErrors([]);
     setStatus('loading');
     log('model', `Starting ${activeModelLabel} load`, inferenceProvider === 'chrome' ? 'Chrome manages model eligibility, download, and storage.' : `${selectedModelSize} LiteRT artifact · ${modelCached ? 'cached in this browser' : 'network download'} · ${selectedModel.contextTokens.toLocaleString()} token context`);
     try {
+      if (inferenceProvider === 'litert') await unloadOtherLiteRtModels();
       const loadedEngine = await activeModelApi.load(handleLoadProgress, inferenceProvider === 'litert' ? selectedModel : undefined);
       setEngines((current) => ({ ...current, [activeEngineKey]: loadedEngine }));
       setStatus('ready');
@@ -245,8 +271,10 @@ export function useComposerWorkbench({ modelApi = liteRtProvider, chromeModelApi
       setErrors([message]);
       setStatus('error');
       log('model', 'Model load failed', message);
+    } finally {
+      loadInFlight.current = false;
     }
-  }, [activeEngineKey, activeModelApi, activeModelLabel, handleLoadProgress, inferenceProvider, log, modelCached, selectedModel, selectedModelSize]);
+  }, [activeEngineKey, activeModelApi, activeModelLabel, engines, handleLoadProgress, inferenceProvider, log, modelApi, modelCached, selectedModel, selectedModelSize]);
 
   const clearModelCache = useCallback(async () => {
     const cleared = await clearCachedModel(selectedModel);

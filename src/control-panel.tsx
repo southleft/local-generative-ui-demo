@@ -63,6 +63,8 @@ export const ControlPanel = memo(function ControlPanel({
   onReroll,
   onRunSample,
 }: ControlPanelProps) {
+  // The model can't change under a load in progress; see isLoading in use-composer-workbench.ts.
+  const modelLocked = status === 'loading' || isGenerating;
   return (
     <div className="control-panel">
       <div className="panel-heading"><div><span className="step-number">01</span><h2>Compose</h2></div><span className={`system-status system-status--${status}`}><i />{statusLabel}</span></div>
@@ -73,10 +75,10 @@ export const ControlPanel = memo(function ControlPanel({
       </div>
       <span className="field-label">INFERENCE PROVIDER</span>
       <div className="segmented-control inference-provider-control">
-        <button className={inferenceProvider === 'chrome' ? 'is-active' : ''} type="button" onClick={() => onChangeInferenceProvider('chrome')}>Chrome built-in</button>
-        <button className={inferenceProvider === 'litert' ? 'is-active' : ''} type="button" onClick={() => onChangeInferenceProvider('litert')}>LiteRT</button>
+        <button className={inferenceProvider === 'chrome' ? 'is-active' : ''} type="button" disabled={modelLocked} onClick={() => onChangeInferenceProvider('chrome')}>Chrome built-in</button>
+        <button className={inferenceProvider === 'litert' ? 'is-active' : ''} type="button" disabled={modelLocked} onClick={() => onChangeInferenceProvider('litert')}>LiteRT</button>
       </div>
-      {inferenceProvider === 'litert' ? <label className="model-select-label" htmlFor="litert-model"><span className="field-label">LITERT MODEL</span><select id="litert-model" value={selectedModelId} onChange={(event) => onChangeLiteRtModel(event.target.value as LiteRtModelDefinition['id'])}>{LITERT_MODELS.map((model) => <option disabled={!model.webSupported} key={model.id} value={model.id}>{model.label} · {model.webSupported ? `${(model.sizeBytes / 1_048_576).toFixed(0)} MiB` : 'unavailable in LiteRT-LM.js'}</option>)}</select></label> : null}
+      {inferenceProvider === 'litert' ? <label className="model-select-label" htmlFor="litert-model"><span className="field-label">LITERT MODEL</span><select id="litert-model" value={selectedModelId} disabled={modelLocked} onChange={(event) => onChangeLiteRtModel(event.target.value as LiteRtModelDefinition['id'])}>{LITERT_MODELS.map((model) => <option disabled={!model.webSupported} key={model.id} value={model.id}>{model.label} · {model.webSupported ? `${(model.sizeBytes / 1_048_576).toFixed(0)} MiB` : 'unavailable in LiteRT-LM.js'}</option>)}</select></label> : null}
       <span className="field-label">GUARDRAILS</span>
       <div className="segmented-control">
         <button className={guardrailsMode === 'recover' ? 'is-active' : ''} type="button" disabled={isGenerating} title="Full salvage: repair, generous interpretation, reconstruction, and cleanup — every adjustment logged." onClick={() => onChangeGuardrailsMode('recover')}>Recover</button>

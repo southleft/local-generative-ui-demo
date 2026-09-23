@@ -54,12 +54,15 @@ export interface ModelProvider {
   hasWebGpu(): boolean;
   load(onProgress: (progress: ModelLoadProgress) => void, model?: LiteRtModelDefinition): Promise<ModelEngine>;
   generate(engine: ModelEngine, prompt: string, options: GenerateOptions): Promise<string>;
+  /** Frees the engine's WebAssembly heap and GPU memory. */
+  unload?(engine: ModelEngine): Promise<void>;
 }
 
 export const liteRtProvider: ModelProvider = {
   hasWebGpu,
   load: (onProgress, model) => loadLiteRtModel({ onProgress, model }),
   generate: (engine, prompt, options) => generateModelText(engine as LiteRtEngineLike, prompt, options),
+  unload: async (engine) => { await (engine as LiteRtEngineLike).delete?.(); },
 };
 
 const chromeAdapter = new ChromeLanguageModelAdapter();
