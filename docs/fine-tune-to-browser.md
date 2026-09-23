@@ -207,8 +207,8 @@ flowchart LR
   S --> C["conversation → tokens"]
   H --> C
   C --> G["guardrail → A2UI render"]
-  DEV["dev: /models/… served from<br/>training/runs/release"] -.-> H
-  HUB["hosted: VITE_TUNED_MODEL_URL →<br/>the Hugging Face file"] -.-> H
+  HUB["default: the Hugging Face file"] -.-> H
+  DEV["opt-in: VITE_TUNED_MODEL_URL → /models/…<br/>served from training/runs/release"] -.-> H
 ```
 
 ### 2.5 Checked where the reader will run it

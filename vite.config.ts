@@ -51,8 +51,8 @@ function sessionLogPlugin(): Plugin {
  * Serves the catalog-tuned artifact (a 2.14 GB standard .litertlm produced by
  * training/scripts, gitignored) at /models/gemma-4-e2b-catalog-int8.litertlm
  * with Content-Length and Range support, so the loader can size its heap
- * block and Cache Storage can keep it. Dev-server only; a deployed build
- * points VITE_TUNED_MODEL_URL at a hosted copy instead.
+ * block and Cache Storage can keep it. Dev-server only, and only used when
+ * VITE_TUNED_MODEL_URL points here; by default the app loads the Hub copy.
  */
 function tunedModelPlugin(): Plugin {
   const route = '/models/gemma-4-e2b-catalog-int8.litertlm';

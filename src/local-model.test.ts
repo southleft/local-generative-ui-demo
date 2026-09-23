@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { clearCachedModel, DEFAULT_LITERT_MODEL, generateModelText, getCachedModelState, LITERT_MODELS, loadLiteRtModel, type EngineFactorySettings, type LiteRtEngineLike, type ModelLoadProgress } from './local-model';
+import { clearCachedModel, DEFAULT_LITERT_MODEL, generateModelText, getCachedModelState, HOSTED_TUNED_MODEL_URL, LITERT_MODELS, loadLiteRtModel, type EngineFactorySettings, type LiteRtEngineLike, type ModelLoadProgress } from './local-model';
 
 function fakeCacheStorage() {
   const store = new Map<string, { body: ArrayBuffer; headers: Headers }>();
@@ -46,7 +46,7 @@ describe('loadLiteRtModel', () => {
   it('lists the catalog-tuned Gemma as a standard export that takes the heap-resident path', () => {
     const tuned = LITERT_MODELS.find((model) => model.id === 'gemma-4-e2b-catalog')!;
     expect(tuned).toMatchObject({ label: 'Gemma 4 E2B · catalog-tuned', sizeBytes: 2_293_258_112, contextTokens: 4_096, webSupported: true, loader: 'heap' });
-    expect(tuned.url).toBe('/models/gemma-4-e2b-catalog-int8.litertlm?v=2026-09-11-2ep');
+    expect(tuned.url).toBe(HOSTED_TUNED_MODEL_URL);
     expect(LITERT_MODELS.filter((model) => model.id !== 'gemma-4-e2b-catalog').every((model) => model.loader === undefined)).toBe(true);
   });
 

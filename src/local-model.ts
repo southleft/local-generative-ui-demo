@@ -35,14 +35,16 @@ export interface LiteRtModelDefinition {
   loader?: 'streaming' | 'heap';
 }
 
+/** The published catalog-tuned artifact (two-epoch LoRA, 32k vocabulary, int8) on the Hugging Face Hub. */
+export const HOSTED_TUNED_MODEL_URL = 'https://huggingface.co/bvoran/gemma-4-e2b-it-a2ui-catalog-litertlm/resolve/main/gemma-4-e2b-it-a2ui-catalog-v32k-int8.litertlm';
+
 /**
- * Where the catalog-tuned artifact is served from: the dev server route in
- * vite.config.ts by default, or a hosted URL given at build time as
- * VITE_TUNED_MODEL_URL for a deployed site.
+ * Where the catalog-tuned artifact is served from: the Hub copy by default, in
+ * dev and in deployed builds alike. To try a freshly trained export, set
+ * VITE_TUNED_MODEL_URL=/models/gemma-4-e2b-catalog-int8.litertlm and the dev
+ * server route in vite.config.ts serves it from disk.
  */
-const TUNED_MODEL_URL: string = (import.meta.env?.VITE_TUNED_MODEL_URL as string | undefined) || '/models/gemma-4-e2b-catalog-int8.litertlm?v=2026-09-11-2ep'; // the query string versions the Cache Storage entry when the shipped adapter changes
-/** The dev server serves the artifact from disk; a deployed build only has it when a hosted URL was configured. */
-const TUNED_MODEL_AVAILABLE: boolean = Boolean(import.meta.env?.VITE_TUNED_MODEL_URL) || Boolean(import.meta.env?.DEV);
+const TUNED_MODEL_URL: string = (import.meta.env?.VITE_TUNED_MODEL_URL as string | undefined) || HOSTED_TUNED_MODEL_URL;
 
 export const LITERT_MODELS: LiteRtModelDefinition[] = [
   {
@@ -63,8 +65,7 @@ export const LITERT_MODELS: LiteRtModelDefinition[] = [
     sizeBytes: 2_293_258_112,
     contextTokens: 4_096,
     description: 'Gemma 4 E2B with a two-epoch LoRA fine-tune on this catalog and the A2UI format, vocabulary pruned to 32k tokens, exported at int8 (2.14 GB) and loaded through the runtime\'s standard path.',
-    webSupported: TUNED_MODEL_AVAILABLE,
-    unsupportedReason: TUNED_MODEL_AVAILABLE ? undefined : 'The catalog-tuned artifact is not published for this site yet; run the dev server next to the training output, or set VITE_TUNED_MODEL_URL at build time.',
+    webSupported: true,
     loader: 'heap',
   },
 ];
