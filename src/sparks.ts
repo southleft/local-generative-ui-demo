@@ -14,7 +14,6 @@ export const SPARKS: Spark[] = [
   { label: '⚙️ Account settings', prompt: 'An account settings page: profile details, notification preferences, and a clearly separated danger zone with a delete-account action.' },
   { label: '🧾 Checkout review', prompt: 'A checkout review screen for a small web shop: a summary of the ordered items, shipping details fields, the order total, and a place-order action.' },
   { label: '🍞 Sourdough control', prompt: 'Mission control for my sourdough starter: fermentation progress, feeding schedule, rise metrics, and an emergency deflation alert.' },
-  { label: '🪴 Houseplant mood', prompt: 'A mood tracker for my houseplant Gerald, who is dramatic. Track watering, sunlight drama, and overall vibes, and include a way to log an apology to Gerald.' },
 ];
 
 export const DEFAULT_PROMPT = SPARKS[0].prompt;
